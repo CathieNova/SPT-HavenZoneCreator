@@ -19,19 +19,3 @@ public enum EZoneTypes
     flarezone, 
     botkillzone
 }
-
-public enum ELocations
-{
-    Interchange,
-    Factory4_Day,
-    Factory4_Night,
-    BigMap, // Customs
-    Woods,
-    Lighthouse,
-    Shoreline,
-    RezervBase,
-    Laboratory,
-    TarkovStreets,
-    Sandbox, // Ground Zero PMC Level < 20
-    Sandbox_High // Ground Zero PMC Level > 20
-}

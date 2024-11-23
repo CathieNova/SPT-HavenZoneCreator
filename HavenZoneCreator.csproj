@@ -48,6 +48,12 @@
     <Reference Include="UnityEngine">
       <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.TerrainModule">
+      <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\UnityEngine.TerrainModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TerrainPhysicsModule">
+      <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\UnityEngine.TerrainPhysicsModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>

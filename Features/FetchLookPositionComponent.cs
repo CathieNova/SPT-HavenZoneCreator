@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -22,6 +23,12 @@ public class FetchLookPositionComponent : MonoBehaviour
         Scale,
         Rotate
     }
+    
+    private static readonly string[] PrefixesToSkip = new[]
+    {
+        "Base Human", "Root_Joint", "Player", "AICollider",
+        "Slice", "BornPositions", "BP.", "AITerrain", "TEMP_"
+    };
 
     protected ManualLogSource Logger { get; private set; }
 
@@ -56,6 +63,28 @@ public class FetchLookPositionComponent : MonoBehaviour
     {
         if (!Player) return;
 
+#if DEBUG
+        if (Settings.IsKeyPressed(new KeyboardShortcut(KeyCode.Alpha0, KeyCode.LeftAlt)))
+        {
+            HashSet<int> layersInScene = new HashSet<int>();
+
+            foreach (GameObject obj in FindObjectsOfType<GameObject>())
+            {
+                layersInScene.Add(obj.layer);
+            }
+
+            string layerLog = "Unique layers in the scene:\n";
+
+            foreach (int layer in layersInScene)
+            {
+                string layerName = LayerMask.LayerToName(layer);
+                layerLog += $"Layer Index: {layer}, Layer Name: {layerName}\n";
+            }
+            
+            Plugin.Logger.Log(LogLevel.All, layerLog);
+        }
+#endif
+        
         if (Settings.RemoveLookPosition.Value.IsDown())
         {
             if (LookPositionGameObject)
@@ -63,70 +92,86 @@ public class FetchLookPositionComponent : MonoBehaviour
                 Destroy(LookPositionGameObject);
                 LookPositionGameObject = null;
                 Settings.CurrentLookPosition.Value = Vector3.zero;
+                Settings.CurrentLookRotation.Value = Quaternion.identity;
+                Settings.CurrentLookScale.Value = Vector3.zero;
+                NotificationManagerClass.DisplayMessageNotification("Removed 'Haven Zone Object'.");
             }
         }
-        
+
         if (Settings.IsKeyPressed(Settings.FetchLookPosition.Value))
         {
-            var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit[] hits = new RaycastHit[250];
-            int hitcount = Physics.RaycastNonAlloc(ray, hits);
+            var ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
+            int layerMask = LayerMask.GetMask("Default", "HighPolyCollider", "LowPolyCollider", 
+                "Interactive", "Loot", "Terrain", "DoorLowPolyCollider", "Water");
+            RaycastHit[] hits = new RaycastHit[200];
+            int hitcount = Physics.RaycastNonAlloc(ray, hits, Mathf.Infinity, layerMask);
+
+            Vector3 hitPoint = Vector3.zero;
+            bool validHitFound = false;
+            int count = 0;
 
             for (int i = 0; i < hitcount; i++)
             {
                 var hit = hits[i];
-                
-                var currentTransform = hit.collider.transform;
-                MeshRenderer meshRenderer = null;
+                var hitCollider = hit.collider;
 
-                while (currentTransform != null)
+                if (ShouldSkipObject(hitCollider.gameObject.name))
                 {
-                    meshRenderer = currentTransform.GetComponentInChildren<MeshRenderer>();
-                    if (meshRenderer != null)
-                        break;
-
-                    currentTransform = currentTransform.parent;
+#if DEBUG
+                    NotificationManagerClass.DisplayMessageNotification("We hit " + hitCollider.gameObject.name + " - Skipping");
+#endif
                 }
-                
-                if (meshRenderer)
+                else
                 {
-                    if (!LookPositionGameObject)
-                    {
-                        GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                        cube.GetComponent<Renderer>().enabled = true;
-                        cube.GetComponent<Collider>().enabled = false;
-                        cube.transform.position = hit.point;
-                        cube.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-                        cube.transform.localRotation = Quaternion.identity;
-                        cube.name = "Haven Zone Object";
+                    hitPoint = hit.point;
+                    validHitFound = true;
+                    count++;
+                    break;
+                }
+            }
 
-                        // Change Shader to Transparent Support
-                        var renderer = cube.GetComponent<Renderer>();
-                        var material = new Material(Shader.Find("Standard"));
-                        material.SetFloat("_Mode", 3);
-                        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                        material.SetInt("_ZWrite", 0);
-                        material.DisableKeyword("_ALPHATEST_ON");
-                        material.EnableKeyword("_ALPHABLEND_ON");
-                        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-                        material.SetFloat("_Glossiness", 0f);
-                        material.renderQueue = 3000;
-                        renderer.material = material;
-                        
-                        LookPositionGameObject = cube;
-                        SetColor(Color.green);
-                        SetTransparentColor(Settings.LookPositionCubeTransparency.Value);
-                        break;
-                    }
-                    else
-                    {
-                        LookPositionGameObject.transform.position = hit.point;
-                        LookPositionGameObject.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-                        LookPositionGameObject.transform.localRotation = Quaternion.identity;
-                        ChangeMode(EInputMode.Position);
-                        break;
-                    }
+            if (validHitFound)
+            {
+#if DEBUG
+                NotificationManagerClass.DisplayMessageNotification("We hit " + hits[count].transform.gameObject.name);
+#endif
+                
+                if (!LookPositionGameObject)
+                {
+                    GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    cube.GetComponent<Renderer>().enabled = true;
+                    cube.GetComponent<Collider>().enabled = false;
+                    cube.transform.position = hitPoint;
+                    cube.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
+                    cube.transform.localRotation = Quaternion.identity;
+                    cube.name = "Haven Zone Object";
+
+                    // Change Shader to Transparent Support
+                    var renderer = cube.GetComponent<Renderer>();
+                    var material = new Material(Shader.Find("Standard"));
+                    material.SetFloat("_Mode", 3);
+                    material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    material.SetInt("_ZWrite", 0);
+                    material.DisableKeyword("_ALPHATEST_ON");
+                    material.EnableKeyword("_ALPHABLEND_ON");
+                    material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    material.SetFloat("_Glossiness", 0f);
+                    material.renderQueue = 3000;
+                    renderer.material = material;
+
+                    LookPositionGameObject = cube;
+                    SetColor(Color.green);
+                    SetTransparentColor(Settings.LookPositionCubeTransparency.Value);
+                    NotificationManagerClass.DisplayMessageNotification("Created new 'Haven Zone Object' at " + hitPoint);
+                }
+                else
+                {
+                    LookPositionGameObject.transform.position = hitPoint;
+                    LookPositionGameObject.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
+                    LookPositionGameObject.transform.localRotation = Quaternion.identity;
+                    ChangeMode(EInputMode.Position);
+                    NotificationManagerClass.DisplayMessageNotification("Moved 'Haven Zone Object' to " + hitPoint);
                 }
             }
         }
@@ -331,5 +376,16 @@ public class FetchLookPositionComponent : MonoBehaviour
         if (!LookPositionGameObject) return new Color(color.r, color.g, color.b, transparency);
         
         return new Color(color.r, color.g, color.b, transparency);
+    }
+    
+    private bool ShouldSkipObject(string objectName)
+    {
+        foreach (var prefix in PrefixesToSkip)
+        {
+            if (objectName.StartsWith(prefix))
+                return true;
+        }
+
+        return false;
     }
 }
