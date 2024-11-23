@@ -132,9 +132,9 @@ public class FetchLookPositionComponent : MonoBehaviour
 
             if (validHitFound)
             {
-#if DEBUG
-                NotificationManagerClass.DisplayMessageNotification("We hit " + hits[count].transform.gameObject.name);
-#endif
+//#if DEBUG
+//                NotificationManagerClass.DisplayMessageNotification("We hit " + hits[count].transform.gameObject.name);
+//#endif
                 
                 if (!LookPositionGameObject)
                 {
