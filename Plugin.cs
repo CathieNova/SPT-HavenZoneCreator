@@ -16,7 +16,7 @@ namespace HavenZoneCreator
             Logger ??= BepInEx.Logging.Logger.CreateLogSource("HavenZoneCreator");
             
             Settings.Init(Config);
-            new NewGamePatch().Enable();
+            PatchManager.EnablePatches();
         }
     }
 }
