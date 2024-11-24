@@ -44,6 +44,7 @@ namespace HavenZoneCreator.Utilities
         public static ConfigEntry<KeyboardShortcut> ScaleModeKey { get; set; }
         public static ConfigEntry<KeyboardShortcut> RotateModeKey { get; set; }
         public static ConfigEntry<bool> LockXAndZRotation { get; set; }
+        public static ConfigEntry<Vector3> DefaultScale { get; set; }
         
         #endregion
         
@@ -54,6 +55,15 @@ namespace HavenZoneCreator.Utilities
         public static ConfigEntry<EZoneTypes> ZoneType { get; set; }
         public static ConfigEntry<EFlareTypes> FlareType { get; set; }
         
+        #endregion
+        
+        #region Loose Loot Settings
+
+        public static ConfigEntry<float> LooseLootProbability { get; set; }
+        public static ConfigEntry<bool> LooseLootUseGravity { get; set; }
+        public static ConfigEntry<bool> LooseLootRandomRotation { get; set; }
+        public static ConfigEntry<string> LooseLootItemId { get; set; }
+
         #endregion
 
         public static void Init(ConfigFile config)
@@ -80,10 +90,10 @@ namespace HavenZoneCreator.Utilities
                 "The speed at which the object is transformed", new AcceptableValueRange<float>(0.01f, 10f), new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(FetchLookPosition = config.Bind(ZoneBoxSettings, "Fetch Look Position", new KeyboardShortcut(KeyCode.Keypad0), new ConfigDescription(
-                "Fetches the position you are looking at", null, new ConfigurationManagerAttributes { }, true)));
+                "Fetches the position you are looking at and generates a Zone Cube.", null, new ConfigurationManagerAttributes { }, true)));
             
             ConfigEntries.Add(RemoveLookPosition = config.Bind(ZoneBoxSettings, "Remove Look Position", new KeyboardShortcut(KeyCode.KeypadEnter), new ConfigDescription(
-                "Removes the look position cube", null, new ConfigurationManagerAttributes { }, true)));
+                "Removes the look position Zone Cube.", null, new ConfigurationManagerAttributes { }, true)));
             
             ConfigEntries.Add(PositiveXKey = config.Bind(ZoneBoxSettings, "Transform Positive X", new KeyboardShortcut(KeyCode.Keypad1), new ConfigDescription(
                 "Move Positive X axis", null, new ConfigurationManagerAttributes { })));
@@ -115,6 +125,9 @@ namespace HavenZoneCreator.Utilities
             ConfigEntries.Add(LockXAndZRotation = config.Bind(ZoneBoxSettings, "Lock X And Z Rotation Axes", true, new ConfigDescription(
                 "Change to Lock X and Z rotation axes", null, new ConfigurationManagerAttributes { }, true)));
             
+            ConfigEntries.Add(DefaultScale = config.Bind(ZoneBoxSettings, "Default Scale", new Vector3(0.5f, 0.5f, 0.5f), new ConfigDescription(
+                "The default scale of the Zone Cube.", null, new ConfigurationManagerAttributes { })));
+            
             #endregion
             
             #region Config 3. VCQL Zone Settings
@@ -132,13 +145,26 @@ namespace HavenZoneCreator.Utilities
                 "The type of the flare", null, new ConfigurationManagerAttributes { })));
             
             config.Bind(VCQLZoneSettings, "Generate VCQL Zone", false, new ConfigDescription(
-                "Generates the Zone in the VCQL Zone folder.", null, new ConfigurationManagerAttributes { CustomDrawer = GenerateZone }));
+                "Generates the Zone in the VCQL Zone folder.", null, new ConfigurationManagerAttributes { CustomDrawer = GenerateJson }));
             
             #endregion
             
             #region Config 4. LooseLoot Settings
             
-            // Add Loose Loot here Later
+            ConfigEntries.Add(LooseLootProbability = config.Bind(LooseLootSettings, "Probability", 1f, new ConfigDescription(
+                "The probability of the loose loot.", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { })));
+            
+            ConfigEntries.Add(LooseLootUseGravity = config.Bind(LooseLootSettings, "Use Gravity", false, new ConfigDescription(
+                "Use gravity for the loose loot?", null, new ConfigurationManagerAttributes { })));
+            
+            ConfigEntries.Add(LooseLootRandomRotation = config.Bind(LooseLootSettings, "Random Rotation", false, new ConfigDescription(
+                "Random rotation for the loose loot?", null, new ConfigurationManagerAttributes { })));
+            
+            ConfigEntries.Add(LooseLootItemId = config.Bind(LooseLootSettings, "Item Id", "", new ConfigDescription(
+                "The Id of the item", null, new ConfigurationManagerAttributes { })));
+            
+            ConfigEntries.Add(config.Bind(LooseLootSettings, "Generate Loose Loot", false, new ConfigDescription(
+                "Generates the Loose Loot in the folder \"_EXPORTED_LOOT_\" in your SPT folder.", null, new ConfigurationManagerAttributes { CustomDrawer = GenerateJson })));
             
             #endregion
 
@@ -215,10 +241,12 @@ namespace HavenZoneCreator.Utilities
             return true;
         }
 
-        private static void GenerateZone(ConfigEntryBase entry)
+        private static void GenerateJson(ConfigEntryBase entry)
         {
             if (GUILayout.Button("Generate VCQL Zone", GUILayout.ExpandWidth(true)))
-                ExportJsonFile.GenrateJson(ExportJsonFile.JsonType.VCQL);
+                ExportJsonFile.GenerateJson(ExportJsonFile.JsonType.VCQL);
+            else if (GUILayout.Button("Generate Loose Loot", GUILayout.ExpandWidth(true)))
+                ExportJsonFile.GenerateJson(ExportJsonFile.JsonType.LooseLoot);
         }
     }
     
