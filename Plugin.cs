@@ -17,6 +17,7 @@ namespace HavenZoneCreator
             
             Settings.Init(Config);
             PatchManager.EnablePatches();
+            //PatchManager.DisableTargetPatch(typeof(NewGamePatch));
         }
     }
 }
