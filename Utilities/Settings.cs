@@ -145,16 +145,16 @@ namespace HavenZoneCreator.Utilities
             #region Config 3. VCQL Zone Settings
             
             ConfigEntries.Add(ZoneId = config.Bind(VCQLZoneSettings, "Zone Id", "", new ConfigDescription(
-                "The id of the zone", null, new ConfigurationManagerAttributes { })));
+                "The id of the zone (spaces will be replaced with underscores and make it lowercase)", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(ZoneName = config.Bind(VCQLZoneSettings, "Zone Name", "", new ConfigDescription(
-                "The name of the zone", null, new ConfigurationManagerAttributes { })));
+                "The name of the zone (spaces will be replaced with underscores and make it lowercase)", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(ZoneType = config.Bind(VCQLZoneSettings, "Zone Type", EZoneTypes.placeitem, new ConfigDescription(
-                "The type of the zone", null, new ConfigurationManagerAttributes { })));
+                "The type of zone", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(FlareType = config.Bind(VCQLZoneSettings, "Flare Type", EFlareTypes.none, new ConfigDescription(
-                "The type of the flare", null, new ConfigurationManagerAttributes { })));
+                "The type of flare", null, new ConfigurationManagerAttributes { })));
             
             config.Bind(VCQLZoneSettings, "Generate VCQL Zone", false, new ConfigDescription(
                 "Generates the Zone in the VCQL Zone folder.", null, new ConfigurationManagerAttributes { CustomDrawer = GenerateJson }));
@@ -172,8 +172,8 @@ namespace HavenZoneCreator.Utilities
             ConfigEntries.Add(LooseLootRandomRotation = config.Bind(LooseLootSettings, "Random Rotation", false, new ConfigDescription(
                 "Random rotation for the loose loot?", null, new ConfigurationManagerAttributes { })));
             
-            ConfigEntries.Add(LooseLootItemId = config.Bind(LooseLootSettings, "Item Id", "", new ConfigDescription(
-                "The Id of the item", null, new ConfigurationManagerAttributes { })));
+            ConfigEntries.Add(LooseLootItemId = config.Bind(LooseLootSettings, "Item Id (tpl)", "", new ConfigDescription(
+                "The Id of the item (tpl)", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(config.Bind(LooseLootSettings, "Generate Loose Loot", false, new ConfigDescription(
                 "Generates the Loose Loot in the folder \"_EXPORTED_LOOT_\" in your SPT folder.", null, new ConfigurationManagerAttributes { CustomDrawer = GenerateJson })));
@@ -294,7 +294,7 @@ namespace HavenZoneCreator.Utilities
             {
                 onChange(configEntry.Value);
                 if (notification)
-                    NotificationManagerClass.DisplayMessageNotification($"Setting {configEntry.Value} changed to {configEntry.Value}");
+                    NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Setting {configEntry.Value} changed to {configEntry.Value}");
             };
         }
         

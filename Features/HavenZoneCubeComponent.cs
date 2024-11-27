@@ -95,7 +95,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Settings.CurrentZoneCubePosition.Value = Vector3.zero;
             Settings.CurrentZoneCubeRotation.Value = Quaternion.identity;
             Settings.CurrentZoneCubeScale.Value = Vector3.zero;
-            NotificationManagerClass.DisplayMessageNotification("Removed 'Haven Zone Cube'.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed 'Haven Zone Cube'.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
         if (Settings.IsKeyPressed(Settings.HavenZoneCube.Value))
@@ -118,7 +118,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
                 if (ShouldSkipObject(hitCollider.gameObject.name))
                 {
 #if DEBUG
-                    NotificationManagerClass.DisplayMessageNotification("We hit " + hitCollider.gameObject.name + " - Skipping", ENotificationDurationType.Default, ENotificationIconType.Alert);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] We hit " + hitCollider.gameObject.name + " - Skipping", ENotificationDurationType.Default, ENotificationIconType.Alert);
 #endif
                 }
                 else
@@ -133,7 +133,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             if (validHitFound)
             {
 #if DEBUG
-                NotificationManagerClass.DisplayMessageNotification("We hit " + hits[count].transform.gameObject.name, ENotificationDurationType.Default, ENotificationIconType.Alert);
+                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] We hit " + hits[count].transform.gameObject.name, ENotificationDurationType.Default, ENotificationIconType.Alert);
 #endif
                 
                 if (!LookPositionGameObject)
@@ -166,7 +166,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
                     LookPositionGameObject = cube;
                     SetColor(Color.green);
                     SetTransparentColor(Settings.ZoneCubeTransparency.Value);
-                    NotificationManagerClass.DisplayMessageNotification("Created new 'Haven Zone Cube' at " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Created new 'Haven Zone Cube' at " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
                 }
                 else
                 {
@@ -175,7 +175,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
                     LookPositionGameObject.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
                     LookPositionGameObject.transform.localRotation = Quaternion.identity;
                     ChangeMode(EInputMode.Position);
-                    NotificationManagerClass.DisplayMessageNotification("Moved 'Haven Zone Cube' to " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Moved 'Haven Zone Cube' to " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
                 }
             }
         }
@@ -224,7 +224,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
         if (isIncreaseKeyHeld && Settings.IsKeyReleased(Settings.IncreaseTransformSpeed.Value))
         {
             isIncreaseKeyHeld = false;
-            NotificationManagerClass.DisplayMessageNotification("Transform Speed Increased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Transform Speed Increased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
         // Decrease transform speed
@@ -237,7 +237,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
         if (isDecreaseKeyHeld && Settings.IsKeyReleased(Settings.DecreaseTransformSpeed.Value))
         {
             isDecreaseKeyHeld = false;
-            NotificationManagerClass.DisplayMessageNotification("Transform Speed Decreased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Transform Speed Decreased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
     }
 
@@ -248,7 +248,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Mode = EInputMode.Position;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModFunc);
             SetColor(Color.green);
-            NotificationManagerClass.DisplayMessageNotification("Translation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Translation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
         if (Settings.ScaleModeKey.Value.IsDown())
@@ -256,7 +256,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Mode = EInputMode.Scale;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModGear);
             SetColor(Color.blue);
-            NotificationManagerClass.DisplayMessageNotification("Scaling Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Scaling Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
         if (Settings.RotateModeKey.Value.IsDown())
@@ -264,7 +264,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Mode = EInputMode.Rotate;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModVital);
             SetColor(Color.red);
-            NotificationManagerClass.DisplayMessageNotification("Rotation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Rotation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
     }
 

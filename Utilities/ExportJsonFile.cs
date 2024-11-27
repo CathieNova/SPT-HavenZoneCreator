@@ -40,17 +40,17 @@ public static class ExportJsonFile
     {
         if (Settings.CurrentZoneCubePosition.Value == Vector3.zero)
         {
-            NotificationManagerClass.DisplayMessageNotification("You must generate a FetchLookPosition first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must generate a FetchLookPosition first!");
             return;
         }
         if (Settings.ZoneId.Value == "")
         {
-            NotificationManagerClass.DisplayMessageNotification("You must set a Zone ID first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Zone ID first!");
             return;
         }
         if (Settings.ZoneName.Value == "")
         {
-            NotificationManagerClass.DisplayMessageNotification("You must set a Zone Name first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Zone Name first!");
             return;
         }
         
@@ -67,8 +67,8 @@ public static class ExportJsonFile
         {
             new
             {
-                ZoneId = Settings.ZoneId.Value.ToLower(),
-                ZoneName = Settings.ZoneName.Value.ToLower(),
+                ZoneId = Settings.ZoneId.Value.ToLower().Replace(" ", "_"),
+                ZoneName = Settings.ZoneName.Value.ToLower().Replace(" ", "_"),
                 ZoneLocation = Singleton<GameWorld>.Instance.MainPlayer.Location,
                 ZoneType = Settings.ZoneType.Value.ToString(),
                 FlareType = GetFlareType(),
@@ -97,7 +97,7 @@ public static class ExportJsonFile
         };
 
         WriteJsonFile(filePath, zoneData);
-        NotificationManagerClass.DisplayMessageNotification($"VCQL JSON file generated at {filePath}");
+        NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] VCQL JSON file generated at {filePath} for zone {Settings.ZoneId.Value}");
     }
 
     private static string GetFlareType()
@@ -112,13 +112,13 @@ public static class ExportJsonFile
     {
         if (Settings.CurrentZoneCubePosition.Value == Vector3.zero)
         {
-            NotificationManagerClass.DisplayMessageNotification("You must generate a FetchLookPosition first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must generate a FetchLookPosition first!");
             return;
         }
         
         if (Settings.LooseLootItemId.Value == "")
         {
-            NotificationManagerClass.DisplayMessageNotification("You must set a Loose Loot Item ID first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Loose Loot Item ID first!");
             return;
         }
         
@@ -175,7 +175,7 @@ public static class ExportJsonFile
         };
 
         WriteJsonFile(filePath, looseLootData);
-        NotificationManagerClass.DisplayMessageNotification($"Loose Loot JSON file generated at {filePath}");
+        NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Loose Loot JSON file generated at {filePath}");
     }
 
     private static void WriteJsonFile(string filePath, object looseLootData)
