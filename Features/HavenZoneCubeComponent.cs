@@ -5,16 +5,19 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
+using EFT.Communications;
 using EFT.UI;
 using HavenZoneCreator.Utilities;
 using UnityEngine;
 
 namespace HavenZoneCreator.Features;
 
-public class FetchLookPositionComponent : MonoBehaviour
+public class HavenZoneCubeComponent : MonoBehaviour
 {
     private static Player Player;
     private GameObject LookPositionGameObject;
+    private bool isIncreaseKeyHeld = false;
+    private bool isDecreaseKeyHeld = false;
     public EInputMode Mode = EInputMode.Position;
 
     public enum EInputMode
@@ -27,17 +30,15 @@ public class FetchLookPositionComponent : MonoBehaviour
     private static readonly string[] PrefixesToSkip = new[]
     {
         "Base Human", "Root_Joint", "Player", "AICollider",
-        "Slice", "BornPositions", "BP.", "AITerrain", "TEMP_"
+        "BornPositions", "BP.", "AITerrain", "TEMP_"
     };
 
     protected ManualLogSource Logger { get; private set; }
 
-    private FetchLookPositionComponent()
+    private HavenZoneCubeComponent()
     {
         if (Logger == null)
-        {
-            Logger = BepInEx.Logging.Logger.CreateLogSource(nameof(FetchLookPositionComponent));
-        }
+            Logger = BepInEx.Logging.Logger.CreateLogSource(nameof(HavenZoneCubeComponent));
     }
     
     internal static void Enable()
@@ -45,23 +46,25 @@ public class FetchLookPositionComponent : MonoBehaviour
         if (Singleton<IBotGame>.Instantiated)
         {
             var gameWorld = Singleton<GameWorld>.Instance;
-            gameWorld.GetOrAddComponent<FetchLookPositionComponent>();
+            gameWorld.GetOrAddComponent<HavenZoneCubeComponent>();
             Player = gameWorld.MainPlayer;
-            Settings.CurrentLookPosition.Value = Vector3.zero;
+            Settings.CurrentZoneCubePosition.Value = Vector3.zero;
         }
     }
 
     private void Start()
     {
-        Settings.LookPositionCubeTransparency.SettingChanged += (sender, args) =>
+        Settings.ZoneCubeTransparency.SettingChanged += (sender, args) =>
         {
-            SetTransparentColor(Settings.LookPositionCubeTransparency.Value);
+            SetTransparentColor(Settings.ZoneCubeTransparency.Value);
         };
     }
 
     private void Update()
     {
         if (!Player) return;
+
+        TransformSpeedCheck();
 
 #if DEBUG
         if (Settings.IsKeyPressed(new KeyboardShortcut(KeyCode.Alpha0, KeyCode.LeftAlt)))
@@ -85,20 +88,17 @@ public class FetchLookPositionComponent : MonoBehaviour
         }
 #endif
         
-        if (Settings.RemoveLookPosition.Value.IsDown())
+        if (Settings.RemoveHavenZoneCube.Value.IsDown() && LookPositionGameObject)
         {
-            if (LookPositionGameObject)
-            {
-                Destroy(LookPositionGameObject);
-                LookPositionGameObject = null;
-                Settings.CurrentLookPosition.Value = Vector3.zero;
-                Settings.CurrentLookRotation.Value = Quaternion.identity;
-                Settings.CurrentLookScale.Value = Vector3.zero;
-                NotificationManagerClass.DisplayMessageNotification("Removed 'Haven Zone Object'.");
-            }
+            Destroy(LookPositionGameObject);
+            LookPositionGameObject = null;
+            Settings.CurrentZoneCubePosition.Value = Vector3.zero;
+            Settings.CurrentZoneCubeRotation.Value = Quaternion.identity;
+            Settings.CurrentZoneCubeScale.Value = Vector3.zero;
+            NotificationManagerClass.DisplayMessageNotification("Removed 'Haven Zone Cube'.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
-        if (Settings.IsKeyPressed(Settings.FetchLookPosition.Value))
+        if (Settings.IsKeyPressed(Settings.HavenZoneCube.Value))
         {
             var ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
             int layerMask = LayerMask.GetMask("Default", "HighPolyCollider", "LowPolyCollider", 
@@ -118,7 +118,7 @@ public class FetchLookPositionComponent : MonoBehaviour
                 if (ShouldSkipObject(hitCollider.gameObject.name))
                 {
 #if DEBUG
-                    NotificationManagerClass.DisplayMessageNotification("We hit " + hitCollider.gameObject.name + " - Skipping");
+                    NotificationManagerClass.DisplayMessageNotification("We hit " + hitCollider.gameObject.name + " - Skipping", ENotificationDurationType.Default, ENotificationIconType.Alert);
 #endif
                 }
                 else
@@ -132,9 +132,9 @@ public class FetchLookPositionComponent : MonoBehaviour
 
             if (validHitFound)
             {
-//#if DEBUG
-//                NotificationManagerClass.DisplayMessageNotification("We hit " + hits[count].transform.gameObject.name);
-//#endif
+#if DEBUG
+                NotificationManagerClass.DisplayMessageNotification("We hit " + hits[count].transform.gameObject.name, ENotificationDurationType.Default, ENotificationIconType.Alert);
+#endif
                 
                 if (!LookPositionGameObject)
                 {
@@ -144,7 +144,9 @@ public class FetchLookPositionComponent : MonoBehaviour
                     cube.transform.position = hitPoint;
                     cube.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
                     cube.transform.localRotation = Quaternion.identity;
-                    cube.name = "Haven Zone Object";
+                    cube.name = "Haven Zone Cube";
+                    
+                    Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
 
                     // Change Shader to Transparent Support
                     var renderer = cube.GetComponent<Renderer>();
@@ -157,26 +159,28 @@ public class FetchLookPositionComponent : MonoBehaviour
                     material.EnableKeyword("_ALPHABLEND_ON");
                     material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
                     material.SetFloat("_Glossiness", 0f);
-                    material.renderQueue = 3000;
+                    material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
                     renderer.material = material;
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                     LookPositionGameObject = cube;
                     SetColor(Color.green);
-                    SetTransparentColor(Settings.LookPositionCubeTransparency.Value);
-                    NotificationManagerClass.DisplayMessageNotification("Created new 'Haven Zone Object' at " + hitPoint);
+                    SetTransparentColor(Settings.ZoneCubeTransparency.Value);
+                    NotificationManagerClass.DisplayMessageNotification("Created new 'Haven Zone Cube' at " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
                 }
                 else
                 {
+                    Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
                     LookPositionGameObject.transform.position = hitPoint;
                     LookPositionGameObject.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
                     LookPositionGameObject.transform.localRotation = Quaternion.identity;
                     ChangeMode(EInputMode.Position);
-                    NotificationManagerClass.DisplayMessageNotification("Moved 'Haven Zone Object' to " + hitPoint);
+                    NotificationManagerClass.DisplayMessageNotification("Moved 'Haven Zone Cube' to " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
                 }
             }
         }
 
-        if (LookPositionGameObject == null) return;
+        if (!LookPositionGameObject ) return;
 
         if (Settings.IsKeyPressed(Settings.PositionModeKey.Value))
             ChangeMode(EInputMode.Position);
@@ -208,6 +212,35 @@ public class FetchLookPositionComponent : MonoBehaviour
         }
     }
 
+    private void TransformSpeedCheck()
+    {
+        // Increase transform speed
+        if (Settings.IsKeyPressed(Settings.IncreaseTransformSpeed.Value, true) && LookPositionGameObject)
+        {
+            isIncreaseKeyHeld = true;
+            Settings.TransformSpeed.Value = Mathf.Clamp(Mathf.Round((Settings.TransformSpeed.Value + 0.1f) * 100f) / 100f, 0.25f, 10f);
+        }
+
+        if (isIncreaseKeyHeld && Settings.IsKeyReleased(Settings.IncreaseTransformSpeed.Value))
+        {
+            isIncreaseKeyHeld = false;
+            NotificationManagerClass.DisplayMessageNotification("Transform Speed Increased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
+        }
+
+        // Decrease transform speed
+        if (Settings.IsKeyPressed(Settings.DecreaseTransformSpeed.Value, true) && LookPositionGameObject)
+        {
+            isDecreaseKeyHeld = true;
+            Settings.TransformSpeed.Value = Mathf.Clamp(Mathf.Round((Settings.TransformSpeed.Value - 0.1f) * 100f) / 100f, 0.25f, 10f);
+        }
+
+        if (isDecreaseKeyHeld && Settings.IsKeyReleased(Settings.DecreaseTransformSpeed.Value))
+        {
+            isDecreaseKeyHeld = false;
+            NotificationManagerClass.DisplayMessageNotification("Transform Speed Decreased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
+        }
+    }
+
     public void ChangeMode(EInputMode _mode)
     {
         if (Settings.PositionModeKey.Value.IsDown())
@@ -215,7 +248,7 @@ public class FetchLookPositionComponent : MonoBehaviour
             Mode = EInputMode.Position;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModFunc);
             SetColor(Color.green);
-            NotificationManagerClass.DisplayMessageNotification("Translation Mode Activated.");
+            NotificationManagerClass.DisplayMessageNotification("Translation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
         if (Settings.ScaleModeKey.Value.IsDown())
@@ -223,7 +256,7 @@ public class FetchLookPositionComponent : MonoBehaviour
             Mode = EInputMode.Scale;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModGear);
             SetColor(Color.blue);
-            NotificationManagerClass.DisplayMessageNotification("Scaling Mode Activated.");
+            NotificationManagerClass.DisplayMessageNotification("Scaling Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
 
         if (Settings.RotateModeKey.Value.IsDown())
@@ -231,7 +264,7 @@ public class FetchLookPositionComponent : MonoBehaviour
             Mode = EInputMode.Rotate;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModVital);
             SetColor(Color.red);
-            NotificationManagerClass.DisplayMessageNotification("Rotation Mode Activated.");
+            NotificationManagerClass.DisplayMessageNotification("Rotation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
         }
     }
 
@@ -252,8 +285,8 @@ public class FetchLookPositionComponent : MonoBehaviour
         else if (Settings.PositiveZKey.Value.IsPressed())
             MoveLP("z", speed * delta);
         
-        if (Settings.CurrentLookPosition.Value != LookPositionGameObject.transform.position)
-            Settings.CurrentLookPosition.Value = LookPositionGameObject.transform.position;
+        if (Settings.CurrentZoneCubePosition.Value != LookPositionGameObject.transform.position)
+            Settings.CurrentZoneCubePosition.Value = LookPositionGameObject.transform.position;
     }
 
     public void HandleRotation(float speed, float delta)
@@ -275,8 +308,8 @@ public class FetchLookPositionComponent : MonoBehaviour
         else if (Settings.NegativeZKey.Value.IsPressed())
             RotateLP("z", rotSpeed * delta);
 
-        if (Settings.CurrentLookRotation.Value != LookPositionGameObject.transform.rotation)
-            Settings.CurrentLookRotation.Value = LookPositionGameObject.transform.rotation;
+        if (Settings.CurrentZoneCubeRotation.Value != LookPositionGameObject.transform.rotation)
+            Settings.CurrentZoneCubeRotation.Value = LookPositionGameObject.transform.rotation;
     }
 
     public void HandleScaling(float speed, float delta)
@@ -296,8 +329,8 @@ public class FetchLookPositionComponent : MonoBehaviour
         else if (Settings.PositiveZKey.Value.IsPressed())
             ScaleLP("z", speed * delta);
 
-        if (Settings.CurrentLookScale.Value != LookPositionGameObject.transform.localScale)
-            Settings.CurrentLookScale.Value = LookPositionGameObject.transform.localScale;
+        if (Settings.CurrentZoneCubeScale.Value != LookPositionGameObject.transform.localScale)
+            Settings.CurrentZoneCubeScale.Value = LookPositionGameObject.transform.localScale;
     }
 
     public void MoveLP(string axis, float amount)
@@ -325,7 +358,12 @@ public class FetchLookPositionComponent : MonoBehaviour
             case "z": scaleAmount = new Vector3(0, 0, amount); break;
         }
 
-        LookPositionGameObject.gameObject.transform.localScale += scaleAmount;
+        Vector3 newScale = LookPositionGameObject.gameObject.transform.localScale + scaleAmount;
+        LookPositionGameObject.gameObject.transform.localScale = new Vector3(
+            Mathf.Max(newScale.x, 0.01f),
+            Mathf.Max(newScale.y, 0.01f),
+            Mathf.Max(newScale.z, 0.01f)
+        );
     }
 
     public void RotateLP(string axis, float amount)
@@ -354,7 +392,7 @@ public class FetchLookPositionComponent : MonoBehaviour
         if (!LookPositionGameObject) return;
         
         LookPositionGameObject.GetComponent<Renderer>().material.color = new Color(color.r, color.g, color.b);
-        SetTransparentColor(Settings.LookPositionCubeTransparency.Value);
+        SetTransparentColor(Settings.ZoneCubeTransparency.Value);
     }
 
     public Color GetColor()

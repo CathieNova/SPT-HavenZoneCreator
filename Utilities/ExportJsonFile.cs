@@ -38,8 +38,7 @@ public static class ExportJsonFile
 
     private static void GenerateVCQLJson()
     {
-
-        if (Settings.CurrentLookPosition.Value == Vector3.zero)
+        if (Settings.CurrentZoneCubePosition.Value == Vector3.zero)
         {
             NotificationManagerClass.DisplayMessageNotification("You must generate a FetchLookPosition first!");
             return;
@@ -55,7 +54,7 @@ public static class ExportJsonFile
             return;
         }
         
-        string filePath = Path.Combine(basePath, "user", "mods", "Virtual's Custom Quest Loader", "database", "zones", $"{Settings.ZoneId.Value}.json");
+        string filePath = Path.Combine(basePath, "user", "mods", "Virtual's Custom Quest Loader", "database", "zones", $"{Settings.ZoneId.Value.ToLower()}.json");
         string directoryPath = Path.GetDirectoryName(filePath);
 
         // Ensure the directory exists
@@ -68,36 +67,37 @@ public static class ExportJsonFile
         {
             new
             {
-                ZoneId = Settings.ZoneId.Value,
-                ZoneName = Settings.ZoneName.Value,
+                ZoneId = Settings.ZoneId.Value.ToLower(),
+                ZoneName = Settings.ZoneName.Value.ToLower(),
                 ZoneLocation = Singleton<GameWorld>.Instance.MainPlayer.Location,
                 ZoneType = Settings.ZoneType.Value.ToString(),
                 FlareType = GetFlareType(),
                 Position = new
                 {
-                    X = Settings.CurrentLookPosition.Value.x,
-                    Y = Settings.CurrentLookPosition.Value.y,
-                    Z = Settings.CurrentLookPosition.Value.z,
+                    X = $"{Settings.CurrentZoneCubePosition.Value.x}",
+                    Y = $"{Settings.CurrentZoneCubePosition.Value.y}",
+                    Z = $"{Settings.CurrentZoneCubePosition.Value.z}",
                     W = "0"
                 },
                 Rotation = new
                 {
-                    X = Settings.CurrentLookRotation.Value.x,
-                    Y = Settings.CurrentLookRotation.Value.y,
-                    Z = Settings.CurrentLookRotation.Value.z,
-                    W = Settings.CurrentLookRotation.Value.w
+                    X = $"{Settings.CurrentZoneCubeRotation.Value.x}",
+                    Y = $"{Settings.CurrentZoneCubeRotation.Value.y}",
+                    Z = $"{Settings.CurrentZoneCubeRotation.Value.z}",
+                    W = $"{Settings.CurrentZoneCubeRotation.Value.w}"
                 },
                 Scale = new
                 {
-                    X = Settings.CurrentLookScale.Value.x,
-                    Y = Settings.CurrentLookScale.Value.y,
-                    Z = Settings.CurrentLookScale.Value.z,
+                    X = $"{Settings.CurrentZoneCubeScale.Value.x}",
+                    Y = $"{Settings.CurrentZoneCubeScale.Value.y}",
+                    Z = $"{Settings.CurrentZoneCubeScale.Value.z}",
                     W = "0"
                 }
             }
         };
 
         WriteJsonFile(filePath, zoneData);
+        NotificationManagerClass.DisplayMessageNotification($"VCQL JSON file generated at {filePath}");
     }
 
     private static string GetFlareType()
@@ -110,7 +110,7 @@ public static class ExportJsonFile
 
     private static void GenerateLooseLootJson()
     {
-        if (Settings.CurrentLookPosition.Value == Vector3.zero)
+        if (Settings.CurrentZoneCubePosition.Value == Vector3.zero)
         {
             NotificationManagerClass.DisplayMessageNotification("You must generate a FetchLookPosition first!");
             return;
@@ -135,25 +135,25 @@ public static class ExportJsonFile
         // Gather data for the JSON
         var looseLootData = new
         {
-            locationId = $"({Settings.CurrentLookPosition.Value.x}, {Settings.CurrentLookPosition.Value.y}, {Settings.CurrentLookPosition.Value.z})",
+            locationId = $"({Settings.CurrentZoneCubePosition.Value.x}, {Settings.CurrentZoneCubePosition.Value.y}, {Settings.CurrentZoneCubePosition.Value.z})",
             probability = Settings.LooseLootProbability.Value,
             template = new
             {
-                Id = MongoID.Generate(),
+                Id = $"{MongoID.Generate()}",
                 IsContainer = false,
                 useGravity = Settings.LooseLootUseGravity.Value,
                 randomRotation = Settings.LooseLootRandomRotation.Value,
                 Position = new
                 {
-                    x = Settings.CurrentLookPosition.Value.x,
-                    y = Settings.CurrentLookPosition.Value.y,
-                    z = Settings.CurrentLookPosition.Value.z
+                    x = $"{Settings.CurrentZoneCubePosition.Value.x}",
+                    y = $"{Settings.CurrentZoneCubePosition.Value.y}",
+                    z = $"{Settings.CurrentZoneCubePosition.Value.z}"
                 },
                 Rotation = new
                 {
-                    x = Settings.CurrentLookRotation.Value.x,
-                    y = Settings.CurrentLookRotation.Value.y,   
-                    z = Settings.CurrentLookRotation.Value.z
+                    x = $"{Settings.CurrentZoneCubeRotation.Value.x}",
+                    y = $"{Settings.CurrentZoneCubeRotation.Value.y}",   
+                    z = $"{Settings.CurrentZoneCubeRotation.Value.z}"
                 },
                 IsGroupPosition = false,
                 GroupPositions = Array.Empty<object>(),
@@ -175,6 +175,7 @@ public static class ExportJsonFile
         };
 
         WriteJsonFile(filePath, looseLootData);
+        NotificationManagerClass.DisplayMessageNotification($"Loose Loot JSON file generated at {filePath}");
     }
 
     private static void WriteJsonFile(string filePath, object looseLootData)

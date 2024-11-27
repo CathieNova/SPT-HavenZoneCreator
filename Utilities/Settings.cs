@@ -21,19 +21,20 @@ namespace HavenZoneCreator.Utilities
         
         #region 1. Zone Information
         
-        public static ConfigEntry<Vector3> CurrentLookPosition { get; set; }
-        public static ConfigEntry<Quaternion> CurrentLookRotation { get; set; }
-        public static ConfigEntry<Vector3> CurrentLookScale { get; set; }
+        public static ConfigEntry<Vector3> CurrentZoneCubePosition { get; set; }
+        public static ConfigEntry<Quaternion> CurrentZoneCubeRotation { get; set; }
+        public static ConfigEntry<Vector3> CurrentZoneCubeScale { get; set; }
+        public static ConfigEntry<string> CurrentMapName { get; set; }
         
-        public static ConfigEntry<float> LookPositionCubeTransparency { get; set; }
+        public static ConfigEntry<float> ZoneCubeTransparency { get; set; }
         
         #endregion
         
         #region 2. Zone Box Settings
         
         public static ConfigEntry<float> TransformSpeed { get; set; }
-        public static ConfigEntry<KeyboardShortcut> FetchLookPosition { get; set; }
-        public static ConfigEntry<KeyboardShortcut> RemoveLookPosition { get; set; }
+        public static ConfigEntry<KeyboardShortcut> HavenZoneCube { get; set; }
+        public static ConfigEntry<KeyboardShortcut> RemoveHavenZoneCube { get; set; }
         public static ConfigEntry<KeyboardShortcut> PositiveXKey { get; set; }
         public static ConfigEntry<KeyboardShortcut> NegativeXKey { get; set; }
         public static ConfigEntry<KeyboardShortcut> PositiveYKey { get; set; }
@@ -43,6 +44,8 @@ namespace HavenZoneCreator.Utilities
         public static ConfigEntry<KeyboardShortcut> PositionModeKey { get; set; }
         public static ConfigEntry<KeyboardShortcut> ScaleModeKey { get; set; }
         public static ConfigEntry<KeyboardShortcut> RotateModeKey { get; set; }
+        public static ConfigEntry<KeyboardShortcut> IncreaseTransformSpeed { get; set; }
+        public static ConfigEntry<KeyboardShortcut> DecreaseTransformSpeed { get; set; }
         public static ConfigEntry<bool> LockXAndZRotation { get; set; }
         public static ConfigEntry<Vector3> DefaultScale { get; set; }
         
@@ -70,60 +73,69 @@ namespace HavenZoneCreator.Utilities
         {
             #region Config 1. Zone Information
             
-            ConfigEntries.Add(CurrentLookPosition = config.Bind(ZoneInformation, "Current Look Position", Vector3.zero, new ConfigDescription(
-                "The position you were looking at when pressing 'Fetch Look Position'", null, new ConfigurationManagerAttributes { ReadOnly = true})));
+            ConfigEntries.Add(CurrentZoneCubePosition = config.Bind(ZoneInformation, "Current Zone Cube Position", Vector3.zero, new ConfigDescription(
+                "The current position of the Zone Cube.", null, new ConfigurationManagerAttributes { ReadOnly = true})));
             
-            ConfigEntries.Add(CurrentLookRotation = config.Bind(ZoneInformation, "Current Look Rotation", Quaternion.identity, new ConfigDescription(
-                "The rotation you were looking at when pressing 'Fetch Look Position'", null, new ConfigurationManagerAttributes { ReadOnly = true})));
+            ConfigEntries.Add(CurrentZoneCubeRotation = config.Bind(ZoneInformation, "Current Zone Cube Rotation", Quaternion.identity, new ConfigDescription(
+                "The current rotation of the Zone Cube.", null, new ConfigurationManagerAttributes { ReadOnly = true})));
             
-            ConfigEntries.Add(CurrentLookScale = config.Bind(ZoneInformation, "Current Look Scale", Vector3.zero, new ConfigDescription(
-                "The scale you were looking at when pressing 'Fetch Look Position'", null, new ConfigurationManagerAttributes { ReadOnly = true})));
+            ConfigEntries.Add(CurrentZoneCubeScale = config.Bind(ZoneInformation, "Current Zone Cube Scale", Vector3.zero, new ConfigDescription(
+                "The current scale of the Zone Cube.", null, new ConfigurationManagerAttributes { ReadOnly = true})));
             
-            ConfigEntries.Add(LookPositionCubeTransparency = config.Bind(ZoneInformation, "Look Position Cube Transparency", 0.25f, new ConfigDescription(
-                "Transparency of the look position cube", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { })));
+            ConfigEntries.Add(CurrentMapName = config.Bind(ZoneInformation, "Current Map Name", "", new ConfigDescription(
+                "The ID of the current map.", null, new ConfigurationManagerAttributes { ReadOnly = true})));
+            
+            ConfigEntries.Add(ZoneCubeTransparency = config.Bind(ZoneInformation, "Zone Cube Transparency", 0.5f, new ConfigDescription(
+                "Transparency of the look position cube.", new AcceptableValueRange<float>(0f, 1f), new ConfigurationManagerAttributes { })));
             
             #endregion
             
             #region Config 2. Zone Box Settings
             
             ConfigEntries.Add(TransformSpeed = config.Bind(ZoneBoxSettings, "Transform Speed", 1f, new ConfigDescription(
-                "The speed at which the object is transformed", new AcceptableValueRange<float>(0.01f, 10f), new ConfigurationManagerAttributes { })));
+                "The speed Zone Cube is transformed.", new AcceptableValueRange<float>(0.01f, 10f), new ConfigurationManagerAttributes { })));
             
-            ConfigEntries.Add(FetchLookPosition = config.Bind(ZoneBoxSettings, "Fetch Look Position", new KeyboardShortcut(KeyCode.Keypad0), new ConfigDescription(
+            ConfigEntries.Add(HavenZoneCube = config.Bind(ZoneBoxSettings, "Generate Haven Zone Cube", new KeyboardShortcut(KeyCode.Keypad0), new ConfigDescription(
                 "Fetches the position you are looking at and generates a Zone Cube.", null, new ConfigurationManagerAttributes { }, true)));
             
-            ConfigEntries.Add(RemoveLookPosition = config.Bind(ZoneBoxSettings, "Remove Look Position", new KeyboardShortcut(KeyCode.KeypadEnter), new ConfigDescription(
+            ConfigEntries.Add(RemoveHavenZoneCube = config.Bind(ZoneBoxSettings, "Remove Haven Zone Cube", new KeyboardShortcut(KeyCode.KeypadEnter), new ConfigDescription(
                 "Removes the look position Zone Cube.", null, new ConfigurationManagerAttributes { }, true)));
             
             ConfigEntries.Add(PositiveXKey = config.Bind(ZoneBoxSettings, "Transform Positive X", new KeyboardShortcut(KeyCode.Keypad1), new ConfigDescription(
-                "Move Positive X axis", null, new ConfigurationManagerAttributes { })));
+                "Change Cube on the Positive X axis", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(NegativeXKey = config.Bind(ZoneBoxSettings, "Transform Negative X", new KeyboardShortcut(KeyCode.Keypad4), new ConfigDescription(
-                "Move Negative X axis", null, new ConfigurationManagerAttributes { })));
+                "Change Cube on the Negative X axis", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(PositiveYKey = config.Bind(ZoneBoxSettings, "Transform Positive Y", new KeyboardShortcut(KeyCode.Keypad2), new ConfigDescription(
-                "Positive Y axis", null, new ConfigurationManagerAttributes { })));
+                "Change Cube on the Positive Y axis", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(NegativeYKey = config.Bind(ZoneBoxSettings, "Transform Negative Y", new KeyboardShortcut(KeyCode.Keypad5), new ConfigDescription(
-                "Negative Y axis", null, new ConfigurationManagerAttributes { })));
+                "Change Cube on the Negative Y axis", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(PositiveZKey = config.Bind(ZoneBoxSettings, "Transform Positive Z", new KeyboardShortcut(KeyCode.Keypad3), new ConfigDescription(
-                "Positive Z axis", null, new ConfigurationManagerAttributes { })));
+                "Change Cube on the Positive Z axis", null, new ConfigurationManagerAttributes { })));
             
             ConfigEntries.Add(NegativeZKey = config.Bind(ZoneBoxSettings, "Transform Negative Z", new KeyboardShortcut(KeyCode.Keypad6), new ConfigDescription(
-                "Negative Z axis", null, new ConfigurationManagerAttributes { })));
+                "Change Cube on the Negative Z axis", null, new ConfigurationManagerAttributes { })));
             
-            ConfigEntries.Add(PositionModeKey = config.Bind(ZoneBoxSettings, "Position", new KeyboardShortcut(KeyCode.Keypad7), new ConfigDescription(
-                "Position mode", null, new ConfigurationManagerAttributes { }, true)));
+            ConfigEntries.Add(PositionModeKey = config.Bind(ZoneBoxSettings, "Position Mode", new KeyboardShortcut(KeyCode.Keypad7), new ConfigDescription(
+                "Change to Position mode.", null, new ConfigurationManagerAttributes { }, true)));
             
-            ConfigEntries.Add(ScaleModeKey = config.Bind(ZoneBoxSettings, "Scale", new KeyboardShortcut(KeyCode.Keypad8), new ConfigDescription(
-                "Change to Scale mode", null, new ConfigurationManagerAttributes { }, true)));
+            ConfigEntries.Add(ScaleModeKey = config.Bind(ZoneBoxSettings, "Scale Mode", new KeyboardShortcut(KeyCode.Keypad8), new ConfigDescription(
+                "Change to Scale mode.", null, new ConfigurationManagerAttributes { }, true)));
             
-            ConfigEntries.Add(RotateModeKey = config.Bind(ZoneBoxSettings, "Rotate", new KeyboardShortcut(KeyCode.Keypad9), new ConfigDescription(
-                "Change to Rotate mode", null, new ConfigurationManagerAttributes { }, true)));
+            ConfigEntries.Add(RotateModeKey = config.Bind(ZoneBoxSettings, "Rotate Mode", new KeyboardShortcut(KeyCode.Keypad9), new ConfigDescription(
+                "Change to Rotate mode.", null, new ConfigurationManagerAttributes { }, true)));
+            
+            ConfigEntries.Add(IncreaseTransformSpeed = config.Bind(ZoneBoxSettings, "Increase Transform Speed", new KeyboardShortcut(KeyCode.KeypadPlus), new ConfigDescription(
+                "Increase the speed at which the object is transformed by 0.25", null, new ConfigurationManagerAttributes { }, true)));
+            
+            ConfigEntries.Add(DecreaseTransformSpeed = config.Bind(ZoneBoxSettings, "Decrease Transform Speed", new KeyboardShortcut(KeyCode.KeypadMinus), new ConfigDescription(
+                "Decrease the speed at which the object is transformed by 0.25", null, new ConfigurationManagerAttributes { }, true)));
             
             ConfigEntries.Add(LockXAndZRotation = config.Bind(ZoneBoxSettings, "Lock X And Z Rotation Axes", true, new ConfigDescription(
-                "Change to Lock X and Z rotation axes", null, new ConfigurationManagerAttributes { }, true)));
+                "Change to Lock X and Z rotation axes.", null, new ConfigurationManagerAttributes { }, true)));
             
             ConfigEntries.Add(DefaultScale = config.Bind(ZoneBoxSettings, "Default Scale", new Vector3(0.5f, 0.5f, 0.5f), new ConfigDescription(
                 "The default scale of the Zone Cube.", null, new ConfigurationManagerAttributes { })));
@@ -171,9 +183,9 @@ namespace HavenZoneCreator.Utilities
             #region Subscriptions
             
             TransformSpeed.Subscribe(value => {});
-            FetchLookPosition.Subscribe(value => {});
-            CurrentLookPosition.Subscribe(value => {});
-            LookPositionCubeTransparency.Subscribe(value => {});
+            HavenZoneCube.Subscribe(value => {});
+            CurrentZoneCubePosition.Subscribe(value => {});
+            ZoneCubeTransparency.Subscribe(value => {});
             PositiveXKey.Subscribe(value => {});
             PositiveYKey.Subscribe(value => {});
             PositiveZKey.Subscribe(value => {});
@@ -184,7 +196,15 @@ namespace HavenZoneCreator.Utilities
             
             #endregion
 
-            CurrentLookPosition.Value = Vector3.zero;
+            CurrentZoneCubePosition.Value = Vector3.zero;
+            CurrentZoneCubeScale.Value = DefaultScale.Value;
+            CurrentZoneCubeRotation.Value = Quaternion.identity;
+            CurrentMapName.Value = "";
+            ZoneId.Value = "";
+            ZoneName.Value = "";
+            LooseLootItemId.Value = "";
+            ZoneType.Value = EZoneTypes.placeitem;
+            FlareType.Value = EFlareTypes.none;
             
             RecalcOrder();
         }
@@ -241,6 +261,22 @@ namespace HavenZoneCreator.Utilities
             return true;
         }
 
+        public static bool IsKeyReleased(KeyboardShortcut key)
+        {
+            if (!UnityInput.Current.GetKey(key.MainKey))
+            {
+                foreach (var modifier in key.Modifiers)
+                {
+                    if (!UnityInput.Current.GetKey(modifier))
+                    {
+                        return false;
+                    }
+                }
+                return true; // Main key and modifiers are no longer pressed
+            }
+            return false; // Main key is still pressed
+        }
+        
         private static void GenerateJson(ConfigEntryBase entry)
         {
             if (GUILayout.Button("Generate VCQL Zone", GUILayout.ExpandWidth(true)))

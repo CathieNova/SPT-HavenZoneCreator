@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
+using Comfort.Common;
 using EFT;
 using HavenZoneCreator.Features;
+using HavenZoneCreator.Utilities;
 using SPT.Reflection.Patching;
 
 namespace HavenZoneCreator.Patches
@@ -13,7 +15,9 @@ namespace HavenZoneCreator.Patches
         [PatchPrefix]
         private static void PatchPrefix()
         {
-            FetchLookPositionComponent.Enable();
+            HavenZoneCubeComponent.Enable();
+            
+            Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
         }
     }
 }
