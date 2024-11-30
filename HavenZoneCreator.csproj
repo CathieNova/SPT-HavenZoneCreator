@@ -12,6 +12,7 @@
 
   <PropertyGroup>
     <PathToSPT>C:\SPT</PathToSPT>
+    <PathToRelease>D:\SP-AKI\MyMods\!!Release\3.10\Client\HavenZoneCreator\BepInEx\plugins\</PathToRelease>
   </PropertyGroup>
 
   <ItemGroup>
@@ -88,6 +89,8 @@
       xcopy /F /Y "$(TargetPath)" "$(PathToSPT)\BepInEx\plugins\"
     ) else if "$(ConfigurationName)" == "Release" (
       xcopy /F /Y "$(TargetPath)" "$(PathToSPT)\BepInEx\plugins\"
+    ) else if "$(ConfigurationName)" == "Dist" (
+        xcopy /F /Y "$(TargetPath)" "$(PathToRelease)"
     )' />
   </Target>
 </Project>
