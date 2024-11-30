@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Comfort.Common;
 using EFT;
+using EFT.Communications;
 using UnityEngine;
 
 namespace HavenZoneCreator.Utilities;
@@ -15,7 +18,8 @@ public static class ExportJsonFile
     public enum JsonType
     {
         VCQL,
-        LooseLoot
+        LooseLoot,
+        MapLocation
     }
 
     private static readonly string assemblyLocation = Assembly.GetExecutingAssembly().Location;
@@ -31,6 +35,9 @@ public static class ExportJsonFile
             case JsonType.LooseLoot:
                 GenerateLooseLootJson();
                 break;
+            case JsonType.MapLocation:
+                GenerateCubeDataJson();
+                break;
             default:
                 break;
         }
@@ -40,17 +47,17 @@ public static class ExportJsonFile
     {
         if (Settings.CurrentZoneCubePosition.Value == Vector3.zero)
         {
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must generate a FetchLookPosition first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must generate a FetchLookPosition first!", ENotificationDurationType.Default, ENotificationIconType.Alert);
             return;
         }
         if (Settings.ZoneId.Value == "")
         {
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Zone ID first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Zone ID first!", ENotificationDurationType.Default, ENotificationIconType.Alert);
             return;
         }
         if (Settings.ZoneName.Value == "")
         {
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Zone Name first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Zone Name first!", ENotificationDurationType.Default, ENotificationIconType.Alert);
             return;
         }
         
@@ -97,8 +104,10 @@ public static class ExportJsonFile
         };
 
         WriteJsonFile(filePath, zoneData);
+        Plugin.Logger.LogMessage($"[HavenZoneCreator] VCQL JSON file generated at {filePath} for zone {Settings.ZoneId.Value}");
         NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] VCQL JSON file generated at {filePath} for zone {Settings.ZoneId.Value}");
     }
+
 
     private static string GetFlareType()
     {
@@ -112,17 +121,17 @@ public static class ExportJsonFile
     {
         if (Settings.CurrentZoneCubePosition.Value == Vector3.zero)
         {
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must generate a FetchLookPosition first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must generate a FetchLookPosition first!", ENotificationDurationType.Default, ENotificationIconType.Alert);
             return;
         }
         
         if (Settings.LooseLootItemId.Value == "")
         {
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Loose Loot Item ID first!");
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must set a Loose Loot Item ID first!", ENotificationDurationType.Default, ENotificationIconType.Alert);
             return;
         }
         
-        string filePath = Path.Combine(basePath, "_EXPORTED_LOOT_", $"{Settings.LooseLootItemId.Value}_looseLoot.json");
+        string filePath = Path.Combine(basePath, "BepInEx", "plugins", "HavenZoneCreator", $"{Settings.LooseLootItemId.Value}_looseLoot.json");
         string directoryPath = Path.GetDirectoryName(filePath);
 
         // Ensure the directory exists
@@ -175,7 +184,78 @@ public static class ExportJsonFile
         };
 
         WriteJsonFile(filePath, looseLootData);
+        Plugin.Logger.LogMessage($"[HavenZoneCreator] Loose Loot JSON file generated at {filePath}");
         NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Loose Loot JSON file generated at {filePath}");
+    }
+    
+    public static void GenerateCubeDataJson()
+    {
+        if (Settings.CurrentMapName.Value == "")
+        {
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must be in a map to export map positions.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            return;
+        }
+        if (Settings.CubeDataList.Count == 0)
+        {
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No Map Positions to export.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            return;
+        }
+
+        string mapName = Settings.CurrentMapName.Value;
+        string readableMapName = Settings.MapIdToNameMap.ContainsKey(mapName)
+            ? Settings.MapIdToNameMap[mapName]
+            : "UnknownMap";
+        
+        string filePath = Path.Combine(basePath, "BepInEx", "plugins", "HavenZoneCreator", "MapLocations.json");
+        string directoryPath = Path.GetDirectoryName(filePath);
+
+        if (!Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
+        // Initialize data structure
+        var dataToExport = new Dictionary<string, List<object>>();
+
+        // If the file exists, load and merge data
+        if (File.Exists(filePath))
+        {
+            string existingData = File.ReadAllText(filePath);
+            dataToExport = JsonConvert.DeserializeObject<Dictionary<string, List<object>>>(existingData)
+                           ?? new Dictionary<string, List<object>>();
+        }
+
+        // Ensure the map key exists in the dictionary
+        if (!dataToExport.ContainsKey(readableMapName))
+        {
+            dataToExport[readableMapName] = new List<object>();
+        }
+
+        // Add new cube data
+        var newData = Settings.CubeDataList.Select(location => new
+        {
+            Position = new
+            {
+                x = location.Position.x,
+                y = location.Position.y,
+                z = location.Position.z
+            },
+            Rotation = new
+            {
+                x = location.Rotation.x,
+                y = location.Rotation.y,
+                z = location.Rotation.z
+            }
+        }).ToList();
+
+        dataToExport[readableMapName].AddRange(newData);
+
+        // Write updated data to the file
+        WriteJsonFile(filePath, dataToExport);
+        Settings.CubeDataList.Clear();
+
+        Plugin.Logger.LogMessage($"[HavenZoneCreator] Map Positions exported to {filePath}.");
+        NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Map Positions exported to {filePath}.");
     }
 
     private static void WriteJsonFile(string filePath, object looseLootData)

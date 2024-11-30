@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using BepInEx;
+﻿using System.Collections.Generic;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using Comfort.Common;
@@ -15,6 +13,7 @@ namespace HavenZoneCreator.Features;
 public class HavenZoneCubeComponent : MonoBehaviour
 {
     private static Player Player;
+    private static Camera Camera;
     private GameObject LookPositionGameObject;
     private bool isIncreaseKeyHeld = false;
     private bool isDecreaseKeyHeld = false;
@@ -29,7 +28,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
     
     private static readonly string[] PrefixesToSkip = new[]
     {
-        "Base Human", "Root_Joint", "Player", "AICollider",
+        "Default", "Base Human", "Root_Joint", "Player", "AICollider",
         "BornPositions", "BP.", "AITerrain", "TEMP_"
     };
 
@@ -48,6 +47,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             var gameWorld = Singleton<GameWorld>.Instance;
             gameWorld.GetOrAddComponent<HavenZoneCubeComponent>();
             Player = gameWorld.MainPlayer;
+            Camera = Camera.main;
             Settings.CurrentZoneCubePosition.Value = Vector3.zero;
         }
     }
@@ -63,6 +63,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
     private void Update()
     {
         if (!Player) return;
+        if (!Camera) return;
 
         TransformSpeedCheck();
 
@@ -90,20 +91,27 @@ public class HavenZoneCubeComponent : MonoBehaviour
         
         if (Settings.RemoveHavenZoneCube.Value.IsDown() && LookPositionGameObject)
         {
-            Destroy(LookPositionGameObject);
-            LookPositionGameObject = null;
-            Settings.CurrentZoneCubePosition.Value = Vector3.zero;
-            Settings.CurrentZoneCubeRotation.Value = Quaternion.identity;
-            Settings.CurrentZoneCubeScale.Value = Vector3.zero;
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed 'Haven Zone Cube'.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            if (LookPositionGameObject)
+            {
+                Destroy(LookPositionGameObject);
+                LookPositionGameObject = null;
+                Settings.CurrentZoneCubePosition.Value = Vector3.zero;
+                Settings.CurrentZoneCubeRotation.Value = Quaternion.identity;
+                Settings.CurrentZoneCubeScale.Value = Vector3.zero;
+                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed 'Haven Zone Cube'.");
+            }
+            else
+            {
+                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No 'Haven Zone Cube' to remove.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            }
         }
 
         if (Settings.IsKeyPressed(Settings.HavenZoneCube.Value))
         {
             var ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
-            int layerMask = LayerMask.GetMask("Default", "HighPolyCollider", "LowPolyCollider", 
+            int layerMask = LayerMask.GetMask("HighPolyCollider", "LowPolyCollider", 
                 "Interactive", "Loot", "Terrain", "DoorLowPolyCollider", "Water");
-            RaycastHit[] hits = new RaycastHit[200];
+            RaycastHit[] hits = new RaycastHit[500];
             int hitcount = Physics.RaycastNonAlloc(ray, hits, Mathf.Infinity, layerMask);
 
             Vector3 hitPoint = Vector3.zero;
@@ -141,13 +149,20 @@ public class HavenZoneCubeComponent : MonoBehaviour
                     GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     cube.GetComponent<Renderer>().enabled = true;
                     cube.GetComponent<Collider>().enabled = false;
-                    cube.transform.position = hitPoint;
-                    cube.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
-                    cube.transform.localRotation = Quaternion.identity;
+                    Vector3 directionToPlayer = Vector3.zero;
+                    if (Settings.SpawnHavenZoneCubeAtLookingPosition.Value)
+                    {
+                        directionToPlayer = (Player.Transform.position - hitPoint).normalized;
+                        cube.transform.position = hitPoint + directionToPlayer * 0.01f;
+                        cube.transform.localScale = Settings.DefaultScale.Value;
+                    }
+                    else
+                    {
+                        cube.transform.position = Camera.transform.position;
+                    }
+                    cube.transform.localScale = Settings.DefaultScale.Value;
                     cube.name = "Haven Zone Cube";
                     
-                    Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
-
                     // Change Shader to Transparent Support
                     var renderer = cube.GetComponent<Renderer>();
                     var material = new Material(Shader.Find("Standard"));
@@ -164,22 +179,42 @@ public class HavenZoneCubeComponent : MonoBehaviour
                     renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
                     LookPositionGameObject = cube;
+                    
+                    float currentY = Camera.gameObject.transform.localRotation.eulerAngles.y;
+                    Settings.CurrentZoneCubeRotation.Value = Quaternion.Euler(0, currentY, 0);
+                    LookPositionGameObject.transform.rotation = Quaternion.Euler(0, currentY, 0);;
+                    
                     SetColor(Color.green);
                     SetTransparentColor(Settings.ZoneCubeTransparency.Value);
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Created new 'Haven Zone Cube' at " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Created new 'Haven Zone Cube' at " + hitPoint);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] 'Haven Zone Cube' Rotation set to " + Settings.CurrentZoneCubeRotation.Value.eulerAngles);
                 }
                 else
                 {
                     Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
-                    LookPositionGameObject.transform.position = hitPoint;
-                    LookPositionGameObject.transform.localScale = new Vector3(0.25f, 0.25f, 0.25f);
-                    LookPositionGameObject.transform.localRotation = Quaternion.identity;
+                    Vector3 directionToPlayer = Vector3.zero;
+                    if (Settings.SpawnHavenZoneCubeAtLookingPosition.Value)
+                    {
+                        directionToPlayer = (Camera.transform.position - hitPoint).normalized;
+                        LookPositionGameObject.transform.position = hitPoint + directionToPlayer * 0.01f;
+                        LookPositionGameObject.transform.localScale = Settings.DefaultScale.Value;
+                    }
+                    else
+                    {
+                        LookPositionGameObject.transform.position = Camera.transform.position;
+                    }
+
+                    float currentY = Camera.gameObject.transform.localRotation.eulerAngles.y;
+                    Settings.CurrentZoneCubeRotation.Value = Quaternion.Euler(0, currentY, 0);
+                    LookPositionGameObject.transform.rotation = Quaternion.Euler(0, currentY, 0);;
+                    
                     ChangeMode(EInputMode.Position);
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Moved 'Haven Zone Cube' to " + hitPoint, ENotificationDurationType.Default, ENotificationIconType.Alert);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Moved 'Haven Zone Cube' to " + hitPoint);
+                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] 'Haven Zone Cube' Rotation set to " + Settings.CurrentZoneCubeRotation.Value.eulerAngles);
                 }
             }
         }
-
+        
         if (!LookPositionGameObject ) return;
 
         if (Settings.IsKeyPressed(Settings.PositionModeKey.Value))
@@ -210,6 +245,31 @@ public class HavenZoneCubeComponent : MonoBehaviour
                 break;
             }
         }
+        
+        if (Settings.IsKeyPressed(Settings.AddMapLocationToListKey.Value))
+        {
+            if (LookPositionGameObject)
+            {
+                AddCubeData();
+            }
+            else
+            {
+                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No 'Haven Zone Cube' found.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            }
+        }
+
+        if (Settings.IsKeyPressed(Settings.RemoveMapLocationFromListKey.Value))
+        {
+            if (Settings.CubeDataList.Count > 0)
+            {
+                Settings.CubeDataList.RemoveAt(Settings.CubeDataList.Count - 1);
+                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed last Map Position from the list.");
+            }
+            else
+            {
+                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No Map Positions to remove.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            }
+        }
     }
 
     private void TransformSpeedCheck()
@@ -224,7 +284,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
         if (isIncreaseKeyHeld && Settings.IsKeyReleased(Settings.IncreaseTransformSpeed.Value))
         {
             isIncreaseKeyHeld = false;
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Transform Speed Increased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Transform Speed Increased to " + Settings.TransformSpeed.Value);
         }
 
         // Decrease transform speed
@@ -237,7 +297,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
         if (isDecreaseKeyHeld && Settings.IsKeyReleased(Settings.DecreaseTransformSpeed.Value))
         {
             isDecreaseKeyHeld = false;
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Transform Speed Decreased to " + Settings.TransformSpeed.Value, ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Transform Speed Decreased to " + Settings.TransformSpeed.Value);
         }
     }
 
@@ -248,7 +308,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Mode = EInputMode.Position;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModFunc);
             SetColor(Color.green);
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Translation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Translation Mode Activated.");
         }
 
         if (Settings.ScaleModeKey.Value.IsDown())
@@ -256,7 +316,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Mode = EInputMode.Scale;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModGear);
             SetColor(Color.blue);
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Scaling Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Scaling Mode Activated.");
         }
 
         if (Settings.RotateModeKey.Value.IsDown())
@@ -264,7 +324,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             Mode = EInputMode.Rotate;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModVital);
             SetColor(Color.red);
-            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Rotation Mode Activated.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Rotation Mode Activated.");
         }
     }
 
@@ -309,7 +369,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
             RotateLP("z", rotSpeed * delta);
 
         if (Settings.CurrentZoneCubeRotation.Value != LookPositionGameObject.transform.rotation)
-            Settings.CurrentZoneCubeRotation.Value = LookPositionGameObject.transform.rotation;
+            LookPositionGameObject.transform.rotation = Settings.CurrentZoneCubeRotation.Value;
     }
 
     public void HandleScaling(float speed, float delta)
@@ -379,11 +439,13 @@ public class HavenZoneCubeComponent : MonoBehaviour
 
         if (axis == "x")
         {
-            LookPositionGameObject.transform.localRotation *= Quaternion.Euler(rotation);
+            Settings.CurrentZoneCubeRotation.Value *= Quaternion.Euler(rotation);
+            LookPositionGameObject.transform.localRotation = Settings.CurrentZoneCubeRotation.Value;
         }
         else if (!Settings.LockXAndZRotation.Value)
         {
-            LookPositionGameObject.transform.localRotation *= Quaternion.Euler(rotation);
+            Settings.CurrentZoneCubeRotation.Value *= Quaternion.Euler(rotation);
+            LookPositionGameObject.transform.localRotation = Settings.CurrentZoneCubeRotation.Value;
         }
     }
 
@@ -425,5 +487,20 @@ public class HavenZoneCubeComponent : MonoBehaviour
         }
 
         return false;
+    }
+    
+    public static void AddCubeData()
+    {
+        var position = Settings.CurrentZoneCubePosition.Value;
+        var rotation = Settings.CurrentZoneCubeRotation.Value.eulerAngles;
+
+        var location = new Settings.Location
+        {
+            Position = position,
+            Rotation = rotation
+        };
+
+        Settings.CubeDataList.Add(location);
+        NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Zone Cube Location added to the list.");
     }
 }

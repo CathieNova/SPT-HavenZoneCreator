@@ -5,19 +5,17 @@ using HavenZoneCreator.Features;
 using HavenZoneCreator.Utilities;
 using SPT.Reflection.Patching;
 
-namespace HavenZoneCreator.Patches
+namespace HavenZoneCreator.Patches;
+internal class NewGamePatch : ModulePatch
 {
-    internal class NewGamePatch : ModulePatch
-    {
-        protected override MethodBase GetTargetMethod() =>
-            typeof(GameWorld).GetMethod(nameof(GameWorld.OnGameStarted));
+    protected override MethodBase GetTargetMethod() =>
+        typeof(GameWorld).GetMethod(nameof(GameWorld.OnGameStarted));
 
-        [PatchPrefix]
-        private static void PatchPrefix()
-        {
-            HavenZoneCubeComponent.Enable();
-            
-            Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
-        }
+    [PatchPrefix]
+    private static void PatchPrefix()
+    {
+        HavenZoneCubeComponent.Enable();
+        
+        Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
     }
 }
