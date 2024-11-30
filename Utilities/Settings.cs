@@ -231,7 +231,7 @@ internal class Settings
             "Resets the Map Locations List. (not the json file)", null, new ConfigurationManagerAttributes { CustomDrawer = ResetMapLocationsList })));
 
         ConfigEntries.Add(config.Bind(MapLocations, "Generate Map Locations File", false, new ConfigDescription(
-            "Generates the Map Locations List in the folder \"BepInEx\\plugins\\HavenZoneCreator\".", null,
+            "Generates the Map Locations List in the folder \"BepInEx\\plugins\\HavenZoneCreator\". (it extends the existing file with new locations)", null,
             new ConfigurationManagerAttributes { CustomDrawer = GenerateMapLocationsJson })));
 
         #endregion
