@@ -1,4 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using Comfort.Common;
@@ -17,6 +21,8 @@ public class HavenZoneCubeComponent : MonoBehaviour
     private GameObject LookPositionGameObject;
     private bool isIncreaseKeyHeld = false;
     private bool isDecreaseKeyHeld = false;
+    private static readonly Dictionary<string, (AssetBundle Bundle, int RefCount)> LoadedBundles = new();
+
     public EInputMode Mode = EInputMode.Position;
 
     public enum EInputMode
@@ -29,7 +35,7 @@ public class HavenZoneCubeComponent : MonoBehaviour
     private static readonly string[] PrefixesToSkip = new[]
     {
         "Default", "Base Human", "Root_Joint", "Player", "AICollider",
-        "BornPositions", "BP.", "AITerrain", "TEMP_"
+        "BornPositions", "BP.", "AITerrain", "TEMP_", "Slice"
     };
 
     protected ManualLogSource Logger { get; private set; }
@@ -62,109 +68,105 @@ public class HavenZoneCubeComponent : MonoBehaviour
 
     private void Update()
     {
-        if (!Player) return;
-        if (!Camera) return;
+        if (!Player || !Camera) return;
 
         TransformSpeedCheck();
 
-#if DEBUG
-        if (Settings.IsKeyPressed(new KeyboardShortcut(KeyCode.Alpha0, KeyCode.LeftAlt)))
-        {
-            HashSet<int> layersInScene = new HashSet<int>();
-
-            foreach (GameObject obj in FindObjectsOfType<GameObject>())
-            {
-                layersInScene.Add(obj.layer);
-            }
-
-            string layerLog = "Unique layers in the scene:\n";
-
-            foreach (int layer in layersInScene)
-            {
-                string layerName = LayerMask.LayerToName(layer);
-                layerLog += $"Layer Index: {layer}, Layer Name: {layerName}\n";
-            }
-            
-            Plugin.Logger.Log(LogLevel.All, layerLog);
-        }
-#endif
-        
         if (Settings.RemoveHavenZoneCube.Value.IsDown() && LookPositionGameObject)
         {
-            if (LookPositionGameObject)
-            {
-                Destroy(LookPositionGameObject);
-                LookPositionGameObject = null;
-                Settings.CurrentZoneCubePosition.Value = Vector3.zero;
-                Settings.CurrentZoneCubeRotation.Value = Quaternion.identity;
-                Settings.CurrentZoneCubeScale.Value = Vector3.zero;
-                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed 'Haven Zone Cube'.");
-            }
-            else
-            {
-                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No 'Haven Zone Cube' to remove.", ENotificationDurationType.Default, ENotificationIconType.Alert);
-            }
+            Destroy(LookPositionGameObject);
+            LookPositionGameObject = null;
+            Settings.CurrentZoneCubePosition.Value = Vector3.zero;
+            Settings.CurrentZoneCubeRotation.Value = Quaternion.identity;
+            Settings.CurrentZoneCubeScale.Value = Vector3.zero;
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed 'Haven Zone Cube'.");
+            return;
         }
 
         if (Settings.IsKeyPressed(Settings.HavenZoneCube.Value))
         {
-            var ray = new Ray(Camera.main.transform.position, Camera.main.transform.forward);
-            int layerMask = LayerMask.GetMask("HighPolyCollider", "LowPolyCollider", 
-                "Interactive", "Loot", "Terrain", "DoorLowPolyCollider", "Water");
-            RaycastHit[] hits = new RaycastHit[500];
-            int hitcount = Physics.RaycastNonAlloc(ray, hits, Mathf.Infinity, layerMask);
-
             Vector3 hitPoint = Vector3.zero;
             bool validHitFound = false;
-            int count = 0;
 
-            for (int i = 0; i < hitcount; i++)
+            if (Settings.SpawnHavenZoneCubeAtLookingPosition.Value)
             {
-                var hit = hits[i];
-                var hitCollider = hit.collider;
+                var ray = new Ray(Camera.transform.position, Camera.transform.forward);
+                int layerMask = LayerMask.GetMask("HighPolyCollider", "LowPolyCollider", "Interactive", "Loot", "Terrain", "DoorLowPolyCollider", "Water");
+                RaycastHit[] hits = new RaycastHit[500];
+                int hitCount = Physics.RaycastNonAlloc(ray, hits, Mathf.Infinity, layerMask);
 
-                if (ShouldSkipObject(hitCollider.gameObject.name))
+                for (int i = 0; i < hitCount; i++)
                 {
-#if DEBUG
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] We hit " + hitCollider.gameObject.name + " - Skipping", ENotificationDurationType.Default, ENotificationIconType.Alert);
-#endif
-                }
-                else
-                {
+                    var hit = hits[i];
+                    if (ShouldSkipObject(hit.collider.gameObject.name)) continue;
+
                     hitPoint = hit.point;
                     validHitFound = true;
-                    count++;
                     break;
                 }
             }
 
-            if (validHitFound)
+            if (!validHitFound && Settings.SpawnHavenZoneCubeAtLookingPosition.Value)
             {
-#if DEBUG
-                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] We hit " + hits[count].transform.gameObject.name, ENotificationDurationType.Default, ENotificationIconType.Alert);
-#endif
-                
-                if (!LookPositionGameObject)
+                Plugin.Logger.LogError("[HavenZoneCreator] No valid hit found to spawn the 'Haven Zone Cube'.");
+                return;
+            }
+
+            if (!LookPositionGameObject)
+            {
+                GameObject instance;
+                if (string.IsNullOrWhiteSpace(Settings.ZoneCubePrefab.Value))
                 {
-                    GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    cube.GetComponent<Renderer>().enabled = true;
-                    cube.GetComponent<Collider>().enabled = false;
-                    Vector3 directionToPlayer = Vector3.zero;
-                    if (Settings.SpawnHavenZoneCubeAtLookingPosition.Value)
-                    {
-                        directionToPlayer = (Player.Transform.position - hitPoint).normalized;
-                        cube.transform.position = hitPoint + directionToPlayer * 0.01f;
-                        cube.transform.localScale = Settings.DefaultScale.Value;
-                    }
-                    else
-                    {
-                        cube.transform.position = Camera.transform.position;
-                    }
-                    cube.transform.localScale = Settings.DefaultScale.Value;
-                    cube.name = "Haven Zone Cube";
+                    // Create a default cube
+                    instance = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    instance.GetComponent<Renderer>().enabled = true;
                     
-                    // Change Shader to Transparent Support
-                    var renderer = cube.GetComponent<Renderer>();
+                    var collider = instance.GetComponent<Collider>();
+                    if (collider != null)
+                    {
+                        Destroy(collider);
+                    }
+                }
+                else
+                {
+                    // Load prefab from AssetBundle
+                    string prefabPath = Path.Combine($@"{Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)}\HavenZoneCreator\Prefabs\",
+                        $"{Settings.ZoneCubePrefab.Value}.bundle");
+                    string prefabName = Path.GetFileNameWithoutExtension(Settings.ZoneCubePrefab.Value);
+
+                    // Use the helper method to load the prefab
+                    var prefab = LoadPrefabFromBundle(prefabPath, prefabName);
+                    if (prefab == null) return;
+
+                    // Instantiate the prefab
+                    instance = Instantiate(prefab);
+                    
+                    var colliders = instance.GetComponentsInChildren<Collider>();
+                    foreach (var collider in colliders)
+                    {
+                        Destroy(collider);
+                    }
+
+                    // Note: Do not unload the AssetBundle immediately if you still need it later in the runtime.
+                    // If unloading is necessary at this point, call:
+                    UnloadAssetBundle(prefabPath);
+                }
+
+                // Place and scale the object
+                Vector3 spawnPosition = Settings.SpawnHavenZoneCubeAtLookingPosition.Value
+                    ? hitPoint + (Player.Transform.position - hitPoint).normalized * 0.01f
+                    : Camera.transform.position;
+
+                instance.transform.position = spawnPosition;
+                instance.transform.localScale = string.IsNullOrWhiteSpace(Settings.ZoneCubePrefab.Value) 
+                    ? Settings.DefaultScale.Value 
+                    : Vector3.one;
+                instance.name = "Haven Zone Cube";
+
+                // Apply transparency if it's a default cube
+                if (string.IsNullOrWhiteSpace(Settings.ZoneCubePrefab.Value))
+                {
+                    var renderer = instance.GetComponent<Renderer>();
                     var material = new Material(Shader.Find("Standard"));
                     material.SetFloat("_Mode", 3);
                     material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
@@ -177,99 +179,162 @@ public class HavenZoneCubeComponent : MonoBehaviour
                     material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
                     renderer.material = material;
                     renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
 
-                    LookPositionGameObject = cube;
-                    
-                    float currentY = Camera.gameObject.transform.localRotation.eulerAngles.y;
-                    Settings.CurrentZoneCubeRotation.Value = Quaternion.Euler(0, currentY, 0);
-                    LookPositionGameObject.transform.rotation = Quaternion.Euler(0, currentY, 0);;
-                    
+                LookPositionGameObject = instance;
+                Settings.CurrentZoneCubePosition.Value = instance.transform.position;
+                Settings.CurrentZoneCubeRotation.Value = Quaternion.Euler(0, Camera.transform.localRotation.eulerAngles.y, 0);
+                instance.transform.rotation = Settings.CurrentZoneCubeRotation.Value;
+
+                if (Settings.ZoneCubePrefab.Value == "")
+                {
                     SetColor(Color.green);
                     SetTransparentColor(Settings.ZoneCubeTransparency.Value);
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Created new 'Haven Zone Cube' at " + hitPoint);
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] 'Haven Zone Cube' Rotation set to " + Settings.CurrentZoneCubeRotation.Value.eulerAngles);
+                    NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Created new 'Haven Zone Cube' at {spawnPosition}");
                 }
                 else
                 {
-                    Settings.CurrentMapName.Value = Singleton<GameWorld>.Instance.MainPlayer.Location;
-                    Vector3 directionToPlayer = Vector3.zero;
-                    if (Settings.SpawnHavenZoneCubeAtLookingPosition.Value)
-                    {
-                        directionToPlayer = (Camera.transform.position - hitPoint).normalized;
-                        LookPositionGameObject.transform.position = hitPoint + directionToPlayer * 0.01f;
-                        LookPositionGameObject.transform.localScale = Settings.DefaultScale.Value;
-                    }
-                    else
-                    {
-                        LookPositionGameObject.transform.position = Camera.transform.position;
-                    }
-
-                    float currentY = Camera.gameObject.transform.localRotation.eulerAngles.y;
-                    Settings.CurrentZoneCubeRotation.Value = Quaternion.Euler(0, currentY, 0);
-                    LookPositionGameObject.transform.rotation = Quaternion.Euler(0, currentY, 0);;
-                    
-                    ChangeMode(EInputMode.Position);
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Moved 'Haven Zone Cube' to " + hitPoint);
-                    NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] 'Haven Zone Cube' Rotation set to " + Settings.CurrentZoneCubeRotation.Value.eulerAngles);
+                    NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Created new 'Haven Zone Cube' from prefab '{Settings.ZoneCubePrefab.Value}' at {spawnPosition}");
                 }
             }
-        }
-        
-        if (!LookPositionGameObject ) return;
+            else
+            {
+                // Move existing object
+                Vector3 movePosition = Settings.SpawnHavenZoneCubeAtLookingPosition.Value
+                    ? hitPoint + (Camera.transform.position - hitPoint).normalized * 0.01f
+                    : Camera.transform.position;
 
-        if (Settings.IsKeyPressed(Settings.PositionModeKey.Value))
-            ChangeMode(EInputMode.Position);
-        if (Settings.IsKeyPressed(Settings.ScaleModeKey.Value))
-            ChangeMode(EInputMode.Scale);
-        if (Settings.IsKeyPressed(Settings.RotateModeKey.Value))
-            ChangeMode(EInputMode.Rotate);
-        
+                LookPositionGameObject.transform.position = movePosition;
+                Settings.CurrentZoneCubePosition.Value = movePosition;
+
+                float currentY = Camera.transform.localRotation.eulerAngles.y;
+                Settings.CurrentZoneCubeRotation.Value = Quaternion.Euler(0, currentY, 0);
+                LookPositionGameObject.transform.rotation = Settings.CurrentZoneCubeRotation.Value;
+
+                NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Moved 'Haven Zone Cube' to {movePosition}");
+            }
+        }
+
+        if (!LookPositionGameObject) return;
+
+        if (Settings.IsKeyPressed(Settings.PositionModeKey.Value)) ChangeMode(EInputMode.Position);
+        if (Settings.IsKeyPressed(Settings.ScaleModeKey.Value)) ChangeMode(EInputMode.Scale);
+        if (Settings.IsKeyPressed(Settings.RotateModeKey.Value)) ChangeMode(EInputMode.Rotate);
+
         float delta = Time.deltaTime;
         float speed = Settings.TransformSpeed.Value;
 
-        switch (Mode) 
+        switch (Mode)
         {
             case EInputMode.Position:
-            {
                 HandlePosition(speed, delta);
                 break;
-            }
             case EInputMode.Rotate:
-            {
                 HandleRotation(speed, delta);
                 break;
-            }
             case EInputMode.Scale:
-            {
                 HandleScaling(speed, delta);
                 break;
-            }
-        }
-        
-        if (Settings.IsKeyPressed(Settings.AddMapLocationToListKey.Value))
-        {
-            if (LookPositionGameObject)
-            {
-                AddCubeData();
-            }
-            else
-            {
-                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No 'Haven Zone Cube' found.", ENotificationDurationType.Default, ENotificationIconType.Alert);
-            }
         }
 
-        if (Settings.IsKeyPressed(Settings.RemoveMapLocationFromListKey.Value))
+        if (Settings.IsKeyPressed(Settings.AddMapLocationToListKey.Value))
         {
-            if (Settings.CubeDataList.Count > 0)
+            AddCubeData();
+        }
+
+        if (Settings.IsKeyPressed(Settings.RemoveMapLocationFromListKey.Value) && Settings.CubeDataList.Count > 0)
+        {
+            Settings.CubeDataList.RemoveAt(Settings.CubeDataList.Count - 1);
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed last Map Position from the list.");
+        }
+    }
+
+    private AssetBundle GetOrLoadAssetBundle(string prefabPath)
+    {
+        if (LoadedBundles.TryGetValue(prefabPath, out var bundleInfo))
+        {
+            // Increment the reference count and return the existing bundle
+            LoadedBundles[prefabPath] = (bundleInfo.Bundle, bundleInfo.RefCount + 1);
+            return bundleInfo.Bundle;
+        }
+
+        // Load the bundle if not already cached
+        var bundle = AssetBundle.LoadFromFile(prefabPath);
+        if (bundle == null)
+        {
+            Plugin.Logger.LogError($"[HavenZoneCreator] Failed to load AssetBundle: {prefabPath}");
+            return null;
+        }
+
+        // Cache the bundle with an initial reference count
+        LoadedBundles[prefabPath] = (bundle, 1);
+        return bundle;
+    }
+
+    private void UnloadAssetBundle(string prefabPath)
+    {
+        if (LoadedBundles.TryGetValue(prefabPath, out var bundleInfo))
+        {
+            if (bundleInfo.RefCount > 1)
             {
-                Settings.CubeDataList.RemoveAt(Settings.CubeDataList.Count - 1);
-                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Removed last Map Position from the list.");
+                LoadedBundles[prefabPath] = (bundleInfo.Bundle, bundleInfo.RefCount - 1);
             }
             else
             {
-                NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No Map Positions to remove.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+                bundleInfo.Bundle.Unload(false);
+                LoadedBundles.Remove(prefabPath);
+                Plugin.Logger.LogInfo($"[HavenZoneCreator] Unloaded AssetBundle: {prefabPath}");
             }
         }
+    }
+    
+    private GameObject LoadPrefabFromBundle(string prefabPath, string prefabName)
+    {
+        // Load or get the AssetBundle
+        var bundle = GetOrLoadAssetBundle(prefabPath);
+        if (bundle == null)
+        {
+            Plugin.Logger.LogError($"[HavenZoneCreator] Failed to load AssetBundle: {prefabPath}");
+            return null;
+        }
+
+#if DEBUG
+        Plugin.Logger.LogInfo($"[HavenZoneCreator] Successfully loaded AssetBundle: {prefabPath}");
+#endif
+
+        // Log contents of the AssetBundle
+        var assetNames = bundle.GetAllAssetNames();
+        foreach (var assetName in assetNames)
+        {
+#if DEBUG
+            Plugin.Logger.LogError($"AssetBundle contains: {assetName}");
+#endif
+        }
+
+        // Find the prefab in the AssetBundle (case-insensitive match for safety)
+        var matchingAssetName = assetNames.FirstOrDefault(asset => 
+            asset.EndsWith($"{prefabName}.prefab", StringComparison.OrdinalIgnoreCase));
+
+        if (matchingAssetName == null)
+        {
+            Plugin.Logger.LogError($"[HavenZoneCreator] Prefab '{prefabName}' not found in AssetBundle: {prefabPath}");
+            UnloadAssetBundle(prefabPath);
+            return null;
+        }
+
+        // Load the prefab using the exact path
+        var prefab = bundle.LoadAsset<GameObject>(matchingAssetName);
+        if (prefab == null)
+        {
+            Plugin.Logger.LogError($"[HavenZoneCreator] Failed to load prefab: {matchingAssetName}");
+            UnloadAssetBundle(prefabPath);
+            return null;
+        }
+
+#if DEBUG
+        Plugin.Logger.LogInfo($"[HavenZoneCreator] Successfully loaded prefab: {matchingAssetName}");
+#endif
+        return prefab;
     }
 
     private void TransformSpeedCheck()
@@ -307,7 +372,8 @@ public class HavenZoneCubeComponent : MonoBehaviour
         {
             Mode = EInputMode.Position;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModFunc);
-            SetColor(Color.green);
+            if (Settings.ZoneCubePrefab.Value == "")
+                SetColor(Color.green);
             NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Translation Mode Activated.");
         }
 
@@ -315,7 +381,8 @@ public class HavenZoneCubeComponent : MonoBehaviour
         {
             Mode = EInputMode.Scale;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModGear);
-            SetColor(Color.blue);
+            if (Settings.ZoneCubePrefab.Value == "")
+                SetColor(Color.blue);
             NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Scaling Mode Activated.");
         }
 
@@ -323,7 +390,8 @@ public class HavenZoneCubeComponent : MonoBehaviour
         {
             Mode = EInputMode.Rotate;
             Singleton<GUISounds>.Instance.PlayUISound(EUISoundType.MenuInstallModVital);
-            SetColor(Color.red);
+            if (Settings.ZoneCubePrefab.Value == "")
+                SetColor(Color.red);
             NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] Rotation Mode Activated.");
         }
     }

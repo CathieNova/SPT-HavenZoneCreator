@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <PathToSPT>C:\SPT</PathToSPT>
+    <PathToSPT>D:\SP-AKI\Server-3.10-DEVELOPMENT</PathToSPT>
     <PathToRelease>D:\SP-AKI\MyMods\!!Release\3.10\Client\HavenZoneCreator\BepInEx\plugins\</PathToRelease>
   </PropertyGroup>
 
@@ -27,6 +27,9 @@
     </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="Comfort">
       <HintPath>$(PathToSPT)\EscapeFromTarkov_Data\Managed\Comfort.dll</HintPath>

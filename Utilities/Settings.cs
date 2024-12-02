@@ -15,7 +15,7 @@ internal class Settings
 {
     private static readonly List<ConfigEntryBase> ConfigEntries = [];
     public static List<Location> CubeDataList = new List<Location>();
-    internal static string Directory;
+    private static readonly string basePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
     #region Categories
 
@@ -24,6 +24,7 @@ internal class Settings
     private const string VCQLZoneSettings = "3. VCQL Zone Settings";
     private const string LooseLootSettings = "4. LooseLoot Settings";
     private const string MapLocations = "5. Map Locations";
+    private const string HavenWorldBuilder = "6. Haven World Builder";
 
     #endregion
 
@@ -40,6 +41,7 @@ internal class Settings
 
     #region 2. Zone Box Settings
 
+    public static ConfigEntry<string> ZoneCubePrefab { get; set; }
     public static ConfigEntry<float> TransformSpeed { get; set; }
     public static ConfigEntry<KeyboardShortcut> HavenZoneCube { get; set; }
     public static ConfigEntry<KeyboardShortcut> RemoveHavenZoneCube { get; set; }
@@ -57,6 +59,7 @@ internal class Settings
     public static ConfigEntry<KeyboardShortcut> DecreaseTransformSpeed { get; set; }
     public static ConfigEntry<bool> LockXAndZRotation { get; set; }
     public static ConfigEntry<Vector3> DefaultScale { get; set; }
+    public static ConfigEntry<float> PositionOffSet { get; set; }
 
     #endregion
 
@@ -85,6 +88,13 @@ internal class Settings
 
     #endregion
 
+    #region 6. Haven World Builder
+
+    public static ConfigEntry<string> WorldBuilderFileName { get; set; }
+    public static ConfigEntry<string> WorldBuilderCategory { get; set; }
+
+    #endregion
+
     public static void Init(ConfigFile config)
     {
         #region Config 1. Zone Information
@@ -108,6 +118,9 @@ internal class Settings
 
         #region Config 2. Zone Box Settings
 
+        ConfigEntries.Add(ZoneCubePrefab = config.Bind(ZoneBoxSettings, "Zone Cube Prefab", "", new ConfigDescription(
+            "The prefab to use for the Zone Cube (leave empty for cube).", null, new ConfigurationManagerAttributes { })));
+        
         ConfigEntries.Add(TransformSpeed = config.Bind(ZoneBoxSettings, "Transform Speed", 1f, new ConfigDescription(
             "The speed Zone Cube is transformed.", new AcceptableValueRange<float>(0.01f, 10f), new ConfigurationManagerAttributes { })));
 
@@ -164,6 +177,9 @@ internal class Settings
 
         ConfigEntries.Add(DefaultScale = config.Bind(ZoneBoxSettings, "Default Scale", new Vector3(0.5f, 0.5f, 0.5f), new ConfigDescription(
             "The default scale of the Zone Cube.", null, new ConfigurationManagerAttributes { })));
+        
+        ConfigEntries.Add(PositionOffSet = config.Bind(ZoneBoxSettings, "Position OffSet", 0.1f, new ConfigDescription(
+            "The offset from the position you are looking at it will spawn.", new AcceptableValueRange<float>(0.0f,1.0f), new ConfigurationManagerAttributes { })));
 
         #endregion
 
@@ -235,6 +251,20 @@ internal class Settings
             new ConfigurationManagerAttributes { CustomDrawer = GenerateMapLocationsJson })));
 
         #endregion
+        
+        #region Config 6. Haven World Builder
+        
+        ConfigEntries.Add(WorldBuilderFileName = config.Bind(HavenWorldBuilder, "File Name", "", new ConfigDescription(
+            "The name of the file to save the Haven World Builder data.", null, new ConfigurationManagerAttributes { })));
+        
+        ConfigEntries.Add(WorldBuilderCategory = config.Bind(HavenWorldBuilder, "Category", "", new ConfigDescription(
+            "The category of the file to save the Haven World Builder data.", null, new ConfigurationManagerAttributes { })));
+        
+        ConfigEntries.Add(config.Bind(HavenWorldBuilder, "Generate Haven World Builder File", false, new ConfigDescription(
+            "Generates the Haven World Builder file in the folder \"BepInEx\\plugins\\HavenWorldBuilder\\MapLocations\\MAPNAME\".", null, 
+            new ConfigurationManagerAttributes { CustomDrawer = GenerateHavenWorldBuilderJson })));
+        
+        #endregion
 
         #region Subscriptions
 
@@ -264,6 +294,8 @@ internal class Settings
         LooseLootItemId.Value = "";
         ZoneType.Value = EZoneTypes.placeitem;
         FlareType.Value = EFlareTypes.none;
+        WorldBuilderFileName.Value = "";
+        WorldBuilderCategory.Value = "";
 
         #endregion
 
@@ -357,6 +389,12 @@ internal class Settings
         if (GUILayout.Button("Generate Map Locations File", GUILayout.ExpandWidth(true)))
             ExportJsonFile.GenerateJson(ExportJsonFile.JsonType.MapLocation);
     }
+    
+    private static void GenerateHavenWorldBuilderJson(ConfigEntryBase entry)
+    {
+        if (GUILayout.Button("Generate Haven World Builder File", GUILayout.ExpandWidth(true)))
+            ExportJsonFile.GenerateJson(ExportJsonFile.JsonType.HavenWorldBuilderLocation);
+    }
 
     private static void RemoveMapLocationCubes(ConfigEntryBase entry)
     {
@@ -442,8 +480,7 @@ internal class Settings
                 return;
             }
 
-            Directory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            var filePath = Path.Combine(Directory, "HavenZoneCreator", "MapLocations.json");
+            string filePath = Path.Combine(basePath, "BepInEx", "plugins", "HavenZoneCreator", "MapLocations.json");
 
             MapLocations.MapsLocations mapLocationsData;
             try

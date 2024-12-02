@@ -19,7 +19,8 @@ public static class ExportJsonFile
     {
         VCQL,
         LooseLoot,
-        MapLocation
+        MapLocation,
+        HavenWorldBuilderLocation
     }
 
     private static readonly string assemblyLocation = Assembly.GetExecutingAssembly().Location;
@@ -37,6 +38,9 @@ public static class ExportJsonFile
                 break;
             case JsonType.MapLocation:
                 GenerateCubeDataJson();
+                break;
+            case JsonType.HavenWorldBuilderLocation:
+                GenerateWorldBuilderJson();
                 break;
             default:
                 break;
@@ -107,7 +111,6 @@ public static class ExportJsonFile
         Plugin.Logger.LogMessage($"[HavenZoneCreator] VCQL JSON file generated at {filePath} for zone {Settings.ZoneId.Value}");
         NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] VCQL JSON file generated at {filePath} for zone {Settings.ZoneId.Value}");
     }
-
 
     private static string GetFlareType()
     {
@@ -258,6 +261,83 @@ public static class ExportJsonFile
         NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Map Positions exported to {filePath}.");
     }
 
+    private static void GenerateWorldBuilderJson()
+    {
+        if (Settings.CurrentMapName.Value == "")
+        {
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] You must be in a map to export map positions.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            return;
+        }
+        if (Settings.CubeDataList.Count == 0)
+        {
+            NotificationManagerClass.DisplayMessageNotification("[HavenZoneCreator] No Map Positions to export.", ENotificationDurationType.Default, ENotificationIconType.Alert);
+            return;
+        }
+
+        string mapName = Settings.CurrentMapName.Value;
+        string readableMapName = Settings.MapIdToNameMap.ContainsKey(mapName)
+            ? Settings.MapIdToNameMap[mapName]
+            : "UnknownMap";
+
+        string filePath = Path.Combine(basePath, "HavenWorldBuilder", "MapLocations", readableMapName, $"{Settings.WorldBuilderFileName.Value}.json");
+        string directoryPath = Path.GetDirectoryName(filePath);
+        string category = Settings.WorldBuilderCategory.Value;
+
+        if (!Directory.Exists(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
+        // Initialize data structure
+        var dataToExport = new Dictionary<string, List<object>>();
+
+        // If the file exists, load and merge data
+        if (File.Exists(filePath))
+        {
+            string existingData = File.ReadAllText(filePath);
+            dataToExport = JsonConvert.DeserializeObject<Dictionary<string, List<object>>>(existingData)
+                           ?? new Dictionary<string, List<object>>();
+        }
+
+        // Ensure the map key exists in the dictionary
+        if (!dataToExport.ContainsKey(readableMapName))
+        {
+            dataToExport[readableMapName] = new List<object>();
+        }
+
+        // Add new data
+        var newData = Settings.CubeDataList.Select(location => new
+        {
+            Category = category,
+            Positions = new List<object>
+            {
+                new
+                {
+                    Position = new
+                    {
+                        x = location.Position.x,
+                        y = location.Position.y,
+                        z = location.Position.z
+                    },
+                    Rotation = new
+                    {
+                        x = location.Rotation.x,
+                        y = location.Rotation.y,
+                        z = location.Rotation.z
+                    }
+                }
+            }
+        }).ToList();
+
+        dataToExport[readableMapName].AddRange(newData);
+
+        // Write updated data to the file
+        WriteJsonFile(filePath, dataToExport);
+        Settings.CubeDataList.Clear();
+
+        Plugin.Logger.LogMessage($"[HavenZoneCreator] Haven World Builder Map Positions exported to {filePath}.");
+        NotificationManagerClass.DisplayMessageNotification($"[HavenZoneCreator] Haven World Builder Map Positions exported to {filePath}.");
+    }
     private static void WriteJsonFile(string filePath, object looseLootData)
     {
         using (StreamWriter streamWriter = File.CreateText(filePath))
